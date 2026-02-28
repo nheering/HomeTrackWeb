@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-bg-base text-tx-primary;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-surface;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-tx-muted;
+  }
+}
+
+@layer components {
+  /* Input Styles */
+  .ht-input {
+    @apply w-full bg-bg-base border border-bg-border rounded-lg px-3 py-2 text-sm text-tx-primary
+           placeholder:text-tx-muted
+           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
+           transition-colors duration-150;
+  }
+
+  .ht-label {
+    @apply block text-xs font-medium text-tx-secondary mb-1.5 tracking-wide uppercase;
+  }
+
+  /* Button Styles */
+  .ht-btn-primary {
+    @apply inline-flex items-center gap-2 bg-accent hover:bg-accent-dark
+           text-white text-sm font-medium px-4 py-2 rounded-lg
+           transition-all duration-150 active:scale-95;
+  }
+
+  .ht-btn-secondary {
+    @apply inline-flex items-center gap-2 bg-bg-card border border-bg-border hover:bg-bg-hover
+           text-tx-primary text-sm font-medium px-4 py-2 rounded-lg
+           transition-all duration-150 active:scale-95;
+  }
+
+  .ht-btn-ghost {
+    @apply inline-flex items-center gap-2 text-tx-secondary hover:text-tx-primary
+           text-sm px-3 py-1.5 rounded-lg hover:bg-bg-hover
+           transition-all duration-150;
+  }
+
+  .ht-btn-danger {
+    @apply inline-flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20
+           text-red-400 text-sm font-medium px-4 py-2 rounded-lg border border-red-500/20
+           transition-all duration-150;
+  }
+
+  /* Card Styles */
+  .ht-card {
+    @apply bg-bg-card border border-bg-border rounded-xl p-4;
+    box-shadow: 0 0 0 1px rgba(36,48,68,0.5), 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* Kachel (Dashboard tile) */
+  .ht-kachel {
+    @apply ht-card cursor-pointer
+           hover:border-accent/30 hover:bg-bg-hover
+           transition-all duration-200;
+  }
+
+  .ht-kachel:hover {
+    box-shadow: 0 0 0 1px rgba(249,115,22,0.2), 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(249,115,22,0.05);
+  }
+
+  /* Badge */
+  .ht-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+
+  /* Section Header */
+  .ht-section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-tx-muted mb-3;
+  }
+
+  /* Divider */
+  .ht-divider {
+    @apply border-t border-bg-border my-4;
+  }
+
+  /* Stat Value */
+  .ht-stat-value {
+    @apply font-mono text-lg font-medium text-tx-primary tabular-nums;
+  }
+
+  .ht-stat-label {
+    @apply text-xs text-tx-muted;
+  }
+}
+
+/* Background grid pattern */
+.bg-grid {
+  background-image: 
+    linear-gradient(rgba(36,48,68,0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36,48,68,0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow effect for accent elements */
+.accent-glow {
+  box-shadow: 0 0 20px rgba(249,115,22,0.3);
+}
+
+/* Animated number counter */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-count { animation: countUp 0.5s ease-out forwards; }
+
+/* Tab indicator */
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: theme('colors.accent.DEFAULT');
+  border-radius: 1px;
+}
