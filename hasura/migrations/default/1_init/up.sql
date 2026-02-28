@@ -134,22 +134,13 @@ CREATE INDEX idx_vertrag_anbieter            ON vertrag(anbieter_id);
 CREATE INDEX idx_preisperiode_vertrag        ON preisperiode(vertrag_id, gueltig_ab DESC);
 
 -- ============================================================
--- ROW LEVEL SECURITY (RLS) - Nutzer sehen nur eigene Daten
+-- HINWEIS: ROW LEVEL SECURITY (RLS) wurde entfernt.
 -- ============================================================
-ALTER TABLE verbrauchstyp      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE verbrauchsstelle   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE anbieter           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vertrag            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE preisperiode       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE verbrauchswert     ENABLE ROW LEVEL SECURITY;
-
--- Policies (Hasura verwendet auth.uid() via x-hasura-user-id)
-CREATE POLICY "user_owns_verbrauchstyp"    ON verbrauchstyp    USING (user_id = auth.uid());
-CREATE POLICY "user_owns_verbrauchsstelle" ON verbrauchsstelle  USING (user_id = auth.uid());
-CREATE POLICY "user_owns_anbieter"         ON anbieter          USING (user_id = auth.uid());
-CREATE POLICY "user_owns_vertrag"          ON vertrag           USING (user_id = auth.uid());
-CREATE POLICY "user_owns_preisperiode"     ON preisperiode      USING (user_id = auth.uid());
-CREATE POLICY "user_owns_verbrauchswert"   ON verbrauchswert    USING (user_id = auth.uid());
+-- In Nhost und Hasura wird die Datenisolierung (dass Nutzer nur 
+-- eigene Daten sehen) normalerweise nicht über Postgres RLS, 
+-- sondern über "Hasura Permissions" im GraphQL-Layer geregelt.
+-- Das bedeutet, die Zugriffsregeln werden in der Hasura Console
+-- pro Tabelle konfiguriert (z.B. user_id = X-Hasura-User-Id).
 
 -- ============================================================
 -- UPDATED_AT TRIGGER
