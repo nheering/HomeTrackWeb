@@ -8,3 +8,4 @@ node_modules
 .env.local.example
 .next
 .nhost
+_ignore/
