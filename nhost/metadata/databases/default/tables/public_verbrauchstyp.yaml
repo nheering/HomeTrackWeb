@@ -1,0 +1,110 @@
+table:
+  name: verbrauchstyp
+  schema: public
+array_relationships:
+  - name: verbrauchsstellen
+    using:
+      foreign_key_constraint_on:
+        column: verbrauchstyp_id
+        table:
+          name: verbrauchsstelle
+          schema: public
+  - name: verbrauchswerte
+    using:
+      foreign_key_constraint_on:
+        column: verbrauchstyp_id
+        table:
+          name: verbrauchswert
+          schema: public
+insert_permissions:
+  - role: me
+    permission:
+      check:
+        user_id:
+          _eq: X-Hasura-User-Id
+      columns:
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+        - user_id
+  - role: user
+    permission:
+      check:
+        user_id:
+          _eq: X-Hasura-User-Id
+      columns:
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+        - user_id
+select_permissions:
+  - role: me
+    permission:
+      columns:
+        - id
+        - user_id
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+        - erstellt_am
+        - aktualisiert_am
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+  - role: user
+    permission:
+      columns:
+        - id
+        - user_id
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+        - erstellt_am
+        - aktualisiert_am
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+update_permissions:
+  - role: me
+    permission:
+      columns:
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      check: null
+  - role: user
+    permission:
+      columns:
+        - name
+        - einheit
+        - symbol
+        - farbe
+        - bild_url
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      check: null
+delete_permissions:
+  - role: me
+    permission:
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+  - role: user
+    permission:
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
