@@ -4,11 +4,12 @@ import { useQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { subMonths, startOfYear, format } from 'date-fns';
 import { Loader2, RefreshCw } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import VerbrauchsKachel from '@/components/home/VerbrauchsKachel';
-import { GET_DASHBOARD_DATA, GET_VERBRAUCHSWERTE_STATS } from '@/lib/graphql/queries';
+import { GraphQLErrorBoundary } from '@/components/error';
+import { GET_DASHBOARD_DATA } from '@/lib/graphql/queries';
+import { Verbrauchstyp } from '@/types';
 
 export default function HomePage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthenticationStatus();
@@ -33,7 +34,7 @@ export default function HomePage() {
     );
   }
 
-  const verbrauchstypen = data?.verbrauchstyp ?? [];
+  const verbrauchstypen: Verbrauchstyp[] = data?.verbrauchstyp ?? [];
 
   return (
     <div className="min-h-screen bg-bg-base bg-grid pb-24">
@@ -57,31 +58,27 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 pt-6">
-        {error && (
-          <div className="ht-card border-red-500/30 bg-red-500/5 mb-6">
-            <p className="text-red-400 text-sm">Fehler beim Laden: {error.message}</p>
-          </div>
-        )}
+        <GraphQLErrorBoundary onRetry={refetch}>
+          {verbrauchstypen.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {verbrauchstypen.map((typ) => {
+                const standardStelle = typ.verbrauchsstellen?.[0];
+                const letzterWert = standardStelle?.verbrauchswerte?.[0];
 
-        {verbrauchstypen.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {verbrauchstypen.map((typ: any) => {
-              const standardStelle = typ.verbrauchsstellen?.[0];
-              const letzterWert = standardStelle?.verbrauchswerte?.[0];
-
-              return (
-                <VerbrauchsKachel
-                  key={typ.id}
-                  verbrauchstyp={typ}
-                  letzterWert={letzterWert}
-                  onClick={() => {/* TODO: Detail-Ansicht */}}
-                />
-              );
-            })}
-          </div>
-        )}
+                return (
+                  <VerbrauchsKachel
+                    key={typ.id}
+                    verbrauchstyp={typ}
+                    letzterWert={letzterWert}
+                    onClick={() => {/* TODO: Detail-Ansicht */}}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </GraphQLErrorBoundary>
       </main>
 
       <Navigation />
