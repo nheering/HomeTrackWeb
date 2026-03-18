@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import Modal from './Modal';
 import { INSERT_VERBRAUCHSTYP, UPDATE_VERBRAUCHSTYP } from '@/lib/graphql/mutations';
 import { GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
@@ -17,6 +17,7 @@ interface Props {
 
 export default function VerbrauchstypModal({ editData, onClose }: Props) {
   const isEdit = !!editData;
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name:    editData?.name    || '',
@@ -28,17 +29,29 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
   const [insertTyp, { loading: insertLoading }] = useMutation(INSERT_VERBRAUCHSTYP, {
     refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
     onCompleted: onClose,
+    onError: (error) => {
+      if (error.message?.includes('no mutations exist')) {
+        setErrorMsg('Fehlende Berechtigungen: Bitte Hasura-Permissions für "Insert" prüfen (siehe README Abschnitt 3)');
+      } else {
+        setErrorMsg(error.message || 'Ein Fehler ist aufgetreten');
+      }
+    },
   });
 
   const [updateTyp, { loading: updateLoading }] = useMutation(UPDATE_VERBRAUCHSTYP, {
     refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
     onCompleted: onClose,
+    onError: (error) => {
+      setErrorMsg(error.message || 'Ein Fehler ist aufgetreten');
+    },
   });
 
   const loading = insertLoading || updateLoading;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    
     if (isEdit) {
       updateTyp({ variables: { id: editData.id, set: form } });
     } else {
@@ -49,6 +62,14 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
   return (
     <Modal title={isEdit ? 'Verbrauchstyp bearbeiten' : 'Verbrauchstyp anlegen'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Error Message */}
+        {errorMsg && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-300">{errorMsg}</p>
+          </div>
+        )}
+
         {/* Preview */}
         <div className="flex items-center gap-3 p-3 rounded-xl bg-bg-base/60 border border-bg-border">
           <div

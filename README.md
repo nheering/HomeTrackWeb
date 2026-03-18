@@ -55,14 +55,35 @@ Alternativ via Hasura CLI:
 hasura migrate apply --database-name default
 ```
 
-### 3. Hasura Permissions einrichten
+### 3. Hasura Permissions einrichten (⚠️ WICHTIG)
 
-Im Hasura-Dashboard unter **Permissions** für jede Tabelle:
+Dieser Schritt ist **zwingend erforderlich**, sonst funktionieren Mutations (Insert/Update/Delete) nicht!
 
-- **Role**: `user`
-- **Select / Insert / Update / Delete**: aktivieren
-- **Row filter**: `{"user_id": {"_eq": "X-Hasura-User-Id"}}`
-- **Column presets** (Insert): `user_id: X-Hasura-User-Id`
+Gehe im Hasura-Dashboard zu **Data → [Tabelle] → Permissions** und konfiguriere für jede Tabelle:
+
+#### Für ALLE Tabellen (verbrauchstyp, verbrauchsstelle, anbieter, vertrag, preisperiode, verbrauchswert):
+
+**Role: `user`**
+
+| Operation | Permission | Row Filter | Column Presets |
+|-----------|------------|------------|----------------|
+| **Select** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
+| **Insert** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | `user_id: X-Hasura-User-Id` |
+| **Update** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
+| **Delete** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
+
+**Column Presets für Insert:**
+- `user_id` → `X-Hasura-User-Id` (wird automatisch gesetzt)
+
+**Wichtig:** Ohne diese Permissions erhältst du den Fehler:
+```
+ApolloError: no mutations exist
+```
+
+#### Schnell-Check in Hasura:
+1. Gehe zu **Data → verbrauchstyp → Permissions**
+2. Prüfe ob die Role `user` existiert
+3. Klicke auf `user` → Es sollten alle 4 Operationen (Select, Insert, Update, Delete) mit grünem Häkchen angezeigt werden
 
 ### 4. Environment Variables
 
