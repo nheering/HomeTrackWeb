@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE } from '@/lib/graphql/mutations';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
+import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
@@ -82,9 +83,14 @@ function VerbrauchstypenTab() {
   const { data, loading, refetch } = useQuery(GET_VERBRAUCHSTYPEN);
   const [deleteTyp] = useMutation(DELETE_VERBRAUCHSTYP, { onCompleted: () => refetch() });
   const [setStandard] = useMutation(SET_STANDARD_STELLE, { onCompleted: () => refetch() });
+  const [deleteStelle] = useMutation(DELETE_VERBRAUCHSSTELLE, { onCompleted: () => refetch() });
+  
   const [editItem, setEditItem] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  
+  const [editStelle, setEditStelle] = useState<any | null>(null);
+  const [showCreateStelle, setShowCreateStelle] = useState<string | null>(null);
 
   const typen = data?.verbrauchstyp ?? [];
 
@@ -125,34 +131,58 @@ function VerbrauchstypenTab() {
           </div>
 
           {/* Expanded: Verbrauchsstellen */}
-          {expanded === typ.id && typ.verbrauchsstellen?.length > 0 && (
+          {expanded === typ.id && (
             <div className="mt-3 pt-3 border-t border-bg-border space-y-2">
-              <p className="ht-section-title">Verbrauchsstellen</p>
-              {typ.verbrauchsstellen.map((stelle: any) => (
+              <div className="flex items-center justify-between">
+                <p className="ht-section-title">Verbrauchsstellen</p>
+                <button 
+                  onClick={() => setShowCreateStelle(typ.id)} 
+                  className="ht-btn-ghost text-xs py-1"
+                >
+                  <Plus className="w-3 h-3" /> Stelle
+                </button>
+              </div>
+              
+              {typ.verbrauchsstellen?.map((stelle: any) => (
                 <div key={stelle.id} className="flex items-center justify-between bg-bg-base/60 rounded-lg px-3 py-2">
-                  <div>
-                    <span className="text-sm text-tx-primary">{stelle.bezeichnung}</span>
-                    {stelle.zaehler_nummer && <span className="text-xs text-tx-muted ml-2">#{stelle.zaehler_nummer}</span>}
+                  <div className="flex-1 min-w-0 mr-2">
+                    <p className="text-sm text-tx-primary truncate">{stelle.bezeichnung}</p>
+                    {stelle.zaehler_nummer && <p className="text-[10px] text-tx-muted truncate">#{stelle.zaehler_nummer}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {stelle.ist_standard && (
-                      <span className="ht-badge bg-accent/10 border border-accent/20 text-accent text-[10px]">
+                      <span className="ht-badge bg-accent/10 border border-accent/20 text-accent text-[10px] px-1.5">
                         Standard
                       </span>
                     )}
                     {!stelle.ist_standard && (
                       <button
                         onClick={() => setStandard({ variables: { typ_id: typ.id, stelle_id: stelle.id } })}
-                        className="ht-btn-ghost p-1 text-[10px] text-tx-muted"
+                        className="ht-btn-ghost p-1 text-tx-muted"
                         title="Als Standard setzen"
                       >
                         <Star className="w-3 h-3" />
                       </button>
                     )}
-                    <span className={`w-2 h-2 rounded-full ${stelle.ist_aktiv ? 'bg-status-active' : 'bg-status-inactive'}`} />
+                    <button 
+                      onClick={() => setEditStelle(stelle)} 
+                      className="ht-btn-ghost p-1"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                    <button 
+                      onClick={() => deleteStelle({ variables: { id: stelle.id } })} 
+                      className="ht-btn-ghost p-1 text-red-400/50 hover:text-red-400"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stelle.ist_aktiv ? 'bg-status-active' : 'bg-status-inactive'}`} />
                   </div>
                 </div>
               ))}
+              {(!typ.verbrauchsstellen || typ.verbrauchsstellen.length === 0) && (
+                <p className="text-xs text-tx-muted text-center py-2">Noch keine Verbrauchsstellen angelegt</p>
+              )}
             </div>
           )}
         </div>
@@ -162,6 +192,14 @@ function VerbrauchstypenTab() {
         <VerbrauchstypModal
           editData={editItem}
           onClose={() => { setShowCreate(false); setEditItem(null); refetch(); }}
+        />
+      )}
+
+      {(showCreateStelle || editStelle) && (
+        <VerbrauchsstellenModal
+          verbrauchstypId={showCreateStelle || undefined}
+          editData={editStelle}
+          onClose={() => { setShowCreateStelle(null); setEditStelle(null); refetch(); }}
         />
       )}
     </div>

@@ -1,17 +1,20 @@
 table:
-  name: verbrauchsstelle
+  name: vertrag
   schema: public
 object_relationships:
+  - name: anbieter
+    using:
+      foreign_key_constraint_on: anbieter_id
   - name: verbrauchstyp
     using:
       foreign_key_constraint_on: verbrauchstyp_id
 array_relationships:
-  - name: verbrauchswerte
+  - name: preisperioden
     using:
       foreign_key_constraint_on:
-        column: verbrauchsstelle_id
+        column: vertrag_id
         table:
-          name: verbrauchswert
+          name: preisperiode
           schema: public
 insert_permissions:
   - role: user
@@ -22,15 +25,14 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
+        - anbieter_id
         - verbrauchstyp_id
         - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - vertragsnummer
+        - beginn_datum
+        - ende_datum
+        - kuendigungsfrist
+        - zahlungsintervall
         - notizen
 select_permissions:
   - role: user
@@ -38,15 +40,14 @@ select_permissions:
       columns:
         - id
         - user_id
+        - anbieter_id
         - verbrauchstyp_id
         - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - vertragsnummer
+        - beginn_datum
+        - ende_datum
+        - kuendigungsfrist
+        - zahlungsintervall
         - notizen
         - erstellt_am
         - aktualisiert_am
@@ -57,15 +58,14 @@ update_permissions:
   - role: user
     permission:
       columns:
+        - anbieter_id
         - verbrauchstyp_id
         - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - vertragsnummer
+        - beginn_datum
+        - ende_datum
+        - kuendigungsfrist
+        - zahlungsintervall
         - notizen
       filter:
         user_id:

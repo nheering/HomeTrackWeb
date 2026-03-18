@@ -45,7 +45,7 @@ export const GET_DASHBOARD_DATA = gql`
   query GetDashboardData {
     verbrauchstyp(order_by: { name: asc }) {
       id name einheit symbol farbe
-      verbrauchsstellen(where: { ist_standard: { _eq: true } }) {
+      verbrauchsstellen(order_by: { ist_standard: desc, erstellt_am: asc }, limit: 1) {
         id bezeichnung
         verbrauchswerte(order_by: { datum: desc }, limit: 1) {
           id datum zaehlerstand verbrauch

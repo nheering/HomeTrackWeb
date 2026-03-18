@@ -1,13 +1,10 @@
 table:
-  name: verbrauchswert
+  name: preisperiode
   schema: public
 object_relationships:
-  - name: verbrauchsstelle
+  - name: vertrag
     using:
-      foreign_key_constraint_on: verbrauchsstelle_id
-  - name: verbrauchstyp
-    using:
-      foreign_key_constraint_on: verbrauchstyp_id
+      foreign_key_constraint_on: vertrag_id
 insert_permissions:
   - role: user
     permission:
@@ -17,12 +14,13 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
-        - verbrauchstyp_id
-        - verbrauchsstelle_id
-        - datum
-        - zaehlerstand
-        - verbrauch
-        - bild_url
+        - vertrag_id
+        - gueltig_ab
+        - gueltig_bis
+        - grundpreis
+        - grundpreis_intervall
+        - einheitspreis
+        - steuer
         - notizen
 select_permissions:
   - role: user
@@ -30,12 +28,13 @@ select_permissions:
       columns:
         - id
         - user_id
-        - verbrauchstyp_id
-        - verbrauchsstelle_id
-        - datum
-        - zaehlerstand
-        - verbrauch
-        - bild_url
+        - vertrag_id
+        - gueltig_ab
+        - gueltig_bis
+        - grundpreis
+        - grundpreis_intervall
+        - einheitspreis
+        - steuer
         - notizen
         - erstellt_am
         - aktualisiert_am
@@ -46,12 +45,13 @@ update_permissions:
   - role: user
     permission:
       columns:
-        - verbrauchstyp_id
-        - verbrauchsstelle_id
-        - datum
-        - zaehlerstand
-        - verbrauch
-        - bild_url
+        - vertrag_id
+        - gueltig_ab
+        - gueltig_bis
+        - grundpreis
+        - grundpreis_intervall
+        - einheitspreis
+        - steuer
         - notizen
       filter:
         user_id:

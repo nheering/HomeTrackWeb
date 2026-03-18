@@ -1,17 +1,17 @@
 table:
-  name: verbrauchsstelle
+  name: anbieter
   schema: public
 object_relationships:
   - name: verbrauchstyp
     using:
       foreign_key_constraint_on: verbrauchstyp_id
 array_relationships:
-  - name: verbrauchswerte
+  - name: vertraege
     using:
       foreign_key_constraint_on:
-        column: verbrauchsstelle_id
+        column: anbieter_id
         table:
-          name: verbrauchswert
+          name: vertrag
           schema: public
 insert_permissions:
   - role: user
@@ -23,14 +23,15 @@ insert_permissions:
         user_id: x-hasura-user-id
       columns:
         - verbrauchstyp_id
-        - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - name
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - kundennummer
         - notizen
 select_permissions:
   - role: user
@@ -39,14 +40,15 @@ select_permissions:
         - id
         - user_id
         - verbrauchstyp_id
-        - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - name
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - kundennummer
         - notizen
         - erstellt_am
         - aktualisiert_am
@@ -58,14 +60,15 @@ update_permissions:
     permission:
       columns:
         - verbrauchstyp_id
-        - bezeichnung
-        - zaehler_nummer
-        - zaehler_typ
-        - einbau_datum
-        - standort
-        - marke_hersteller
-        - ist_aktiv
-        - ist_standard
+        - name
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - kundennummer
         - notizen
       filter:
         user_id:

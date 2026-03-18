@@ -66,7 +66,7 @@ export default function VerbrauchsKachel({
             </div>
             <div className="flex items-center gap-1 text-tx-muted text-xs">
               <Clock className="w-3 h-3" />
-              {format(new Date(letzterWert.datum), 'dd.MM.yyyy', { locale: de })}
+              {letzterWert.datum ? format(new Date(letzterWert.datum), 'dd.MM.yyyy', { locale: de }) : '–'}
             </div>
           </div>
 
