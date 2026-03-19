@@ -169,6 +169,3 @@ CMD ["npm", "start"]
 
 ---
 
-## Lizenz
-
-MIT

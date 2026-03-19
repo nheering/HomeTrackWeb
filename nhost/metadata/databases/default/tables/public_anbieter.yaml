@@ -22,17 +22,21 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
-        - verbrauchstyp_id
-        - name
-        - strasse
-        - hausnummer
-        - plz
-        - ort
-        - telefon
         - email
-        - webseite
+        - hausnummer
         - kundennummer
+        - name
         - notizen
+        - ort
+        - plz
+        - strasse
+        - telefon
+        - webseite
+        - aktualisiert_am
+        - erstellt_am
+        - id
+        - user_id
+        - verbrauchstyp_id
 select_permissions:
   - role: user
     permission:

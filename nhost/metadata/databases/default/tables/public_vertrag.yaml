@@ -25,15 +25,19 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
-        - anbieter_id
-        - verbrauchstyp_id
-        - bezeichnung
-        - vertragsnummer
         - beginn_datum
         - ende_datum
         - kuendigungsfrist
-        - zahlungsintervall
+        - bezeichnung
         - notizen
+        - vertragsnummer
+        - zahlungsintervall
+        - aktualisiert_am
+        - erstellt_am
+        - anbieter_id
+        - id
+        - user_id
+        - verbrauchstyp_id
 select_permissions:
   - role: user
     permission:

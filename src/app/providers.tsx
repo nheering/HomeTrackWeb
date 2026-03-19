@@ -11,10 +11,9 @@ export function NhostProvider({ children }: { children: React.ReactNode }) {
     return createApolloClient({
       nhost,
       graphqlUrl,
-      // Apollo Client 3.x/4.x verwendet devtools.enabled
-      // In @nhost/apollo (v9) wird dies intern als connectToDevTools weitergegeben, 
-      // aber wir können auch das native Verhalten erzwingen falls nötig.
-      connectToDevTools: true,
+      devtools: {
+        enabled: true,
+      },
     });
   }, []);
 

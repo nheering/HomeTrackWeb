@@ -14,14 +14,18 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
-        - vertrag_id
         - gueltig_ab
         - gueltig_bis
-        - grundpreis
-        - grundpreis_intervall
         - einheitspreis
+        - grundpreis
         - steuer
+        - grundpreis_intervall
         - notizen
+        - aktualisiert_am
+        - erstellt_am
+        - id
+        - user_id
+        - vertrag_id
 select_permissions:
   - role: user
     permission:

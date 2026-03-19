@@ -25,11 +25,15 @@ insert_permissions:
       set:
         user_id: x-hasura-user-id
       columns:
-        - name
-        - einheit
-        - symbol
-        - farbe
+        - aktualisiert_am
         - bild_url
+        - einheit
+        - erstellt_am
+        - farbe
+        - id
+        - name
+        - symbol
+        - user_id
 select_permissions:
   - role: user
     permission:
@@ -50,11 +54,14 @@ update_permissions:
   - role: user
     permission:
       columns:
-        - name
-        - einheit
-        - symbol
-        - farbe
+        - aktualisiert_am
         - bild_url
+        - einheit
+        - erstellt_am
+        - farbe
+        - id
+        - name
+        - symbol
       filter:
         user_id:
           _eq: X-Hasura-User-Id
