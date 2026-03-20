@@ -2,18 +2,28 @@
 
 import React, { useMemo } from 'react';
 import { NhostProvider as NhostReactProvider } from '@nhost/nextjs';
-import { ApolloProvider } from '@apollo/client';
-import { createApolloClient } from '@nhost/apollo';
+import { ApolloClient, ApolloProvider, InMemoryCache, createHttpLink } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
 import nhost, { graphqlUrl } from '@/lib/nhost';
 
 export function NhostProvider({ children }: { children: React.ReactNode }) {
   const apolloClient = useMemo(() => {
-    return createApolloClient({
-      nhost,
-      graphqlUrl,
-      devtools: {
-        enabled: true,
-      },
+    const httpLink = createHttpLink({ uri: graphqlUrl });
+
+    const authLink = setContext((_, { headers }) => {
+      const token = nhost.auth.getAccessToken();
+      return {
+        headers: {
+          ...headers,
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+      };
+    });
+
+    return new ApolloClient({
+      link: authLink.concat(httpLink),
+      cache: new InMemoryCache(),
+      devtools: { enabled: process.env.NODE_ENV === 'development' },
     });
   }, []);
 
