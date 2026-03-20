@@ -34,6 +34,23 @@ export default function HomePage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="ht-card max-w-md w-full text-center">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">📡</span>
+          </div>
+          <h2 className="text-lg font-semibold text-tx-primary mb-2">Daten konnten nicht geladen werden</h2>
+          <p className="text-sm text-tx-secondary mb-6">{error.message}</p>
+          <button onClick={() => refetch()} className="ht-btn-primary">
+            Erneut versuchen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const verbrauchstypen: Verbrauchstyp[] = data?.verbrauchstyp ?? [];
 
   return (

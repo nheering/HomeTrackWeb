@@ -16,27 +16,21 @@ array_relationships:
 insert_permissions:
   - role: user
     permission:
-      check:
-        user_id:
-          _eq: X-Hasura-User-Id
+      check: {}
       set:
         user_id: x-hasura-user-id
       columns:
-        - email
-        - hausnummer
-        - kundennummer
-        - name
-        - notizen
-        - ort
-        - plz
-        - strasse
-        - telefon
-        - webseite
-        - aktualisiert_am
-        - erstellt_am
-        - id
-        - user_id
         - verbrauchstyp_id
+        - name
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - kundennummer
+        - notizen
 select_permissions:
   - role: user
     permission:
@@ -77,7 +71,7 @@ update_permissions:
       filter:
         user_id:
           _eq: X-Hasura-User-Id
-      check: null
+      check: {}
 delete_permissions:
   - role: user
     permission:

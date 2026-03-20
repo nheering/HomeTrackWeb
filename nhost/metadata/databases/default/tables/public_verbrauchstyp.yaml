@@ -19,21 +19,15 @@ array_relationships:
 insert_permissions:
   - role: user
     permission:
-      check:
-        user_id:
-          _eq: X-Hasura-User-Id
+      check: {}
       set:
         user_id: x-hasura-user-id
       columns:
-        - aktualisiert_am
-        - bild_url
-        - einheit
-        - erstellt_am
-        - farbe
-        - id
         - name
+        - einheit
         - symbol
-        - user_id
+        - farbe
+        - bild_url
 select_permissions:
   - role: user
     permission:
@@ -54,18 +48,15 @@ update_permissions:
   - role: user
     permission:
       columns:
-        - aktualisiert_am
-        - bild_url
-        - einheit
-        - erstellt_am
-        - farbe
-        - id
         - name
+        - einheit
         - symbol
+        - farbe
+        - bild_url
       filter:
         user_id:
           _eq: X-Hasura-User-Id
-      check: null
+      check: {}
 delete_permissions:
   - role: user
     permission:

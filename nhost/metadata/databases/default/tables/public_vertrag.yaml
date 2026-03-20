@@ -19,25 +19,19 @@ array_relationships:
 insert_permissions:
   - role: user
     permission:
-      check:
-        user_id:
-          _eq: X-Hasura-User-Id
+      check: {}
       set:
         user_id: x-hasura-user-id
       columns:
+        - anbieter_id
+        - verbrauchstyp_id
+        - bezeichnung
+        - vertragsnummer
         - beginn_datum
         - ende_datum
         - kuendigungsfrist
-        - bezeichnung
-        - notizen
-        - vertragsnummer
         - zahlungsintervall
-        - aktualisiert_am
-        - erstellt_am
-        - anbieter_id
-        - id
-        - user_id
-        - verbrauchstyp_id
+        - notizen
 select_permissions:
   - role: user
     permission:
@@ -74,7 +68,7 @@ update_permissions:
       filter:
         user_id:
           _eq: X-Hasura-User-Id
-      check: null
+      check: {}
 delete_permissions:
   - role: user
     permission:

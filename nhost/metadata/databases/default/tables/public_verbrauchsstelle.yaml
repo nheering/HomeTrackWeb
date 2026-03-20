@@ -16,26 +16,20 @@ array_relationships:
 insert_permissions:
   - role: user
     permission:
-      check:
-        user_id:
-          _eq: X-Hasura-User-Id
+      check: {}
       set:
         user_id: x-hasura-user-id
       columns:
-        - ist_aktiv
-        - ist_standard
-        - einbau_datum
+        - verbrauchstyp_id
         - bezeichnung
-        - marke_hersteller
-        - notizen
-        - standort
         - zaehler_nummer
         - zaehler_typ
-        - aktualisiert_am
-        - erstellt_am
-        - id
-        - user_id
-        - verbrauchstyp_id
+        - einbau_datum
+        - standort
+        - marke_hersteller
+        - ist_aktiv
+        - ist_standard
+        - notizen
 select_permissions:
   - role: user
     permission:
@@ -74,7 +68,7 @@ update_permissions:
       filter:
         user_id:
           _eq: X-Hasura-User-Id
-      check: null
+      check: {}
 delete_permissions:
   - role: user
     permission:
