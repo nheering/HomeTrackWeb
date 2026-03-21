@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
+import DateInput from '@/components/ui/DateInput';
 import { INSERT_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSSTELLE } from '@/lib/graphql/mutations';
 import { GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
 
@@ -131,12 +132,7 @@ export default function VerbrauchsstellenModal({ editData, verbrauchstypId, onCl
 
           <div>
             <label className="ht-label">Einbaudatum</label>
-            <input
-              type="date"
-              className="ht-input"
-              value={form.einbau_datum}
-              onChange={e => setForm(f => ({ ...f, einbau_datum: e.target.value }))}
-            />
+            <DateInput value={form.einbau_datum} onChange={v => setForm(f => ({ ...f, einbau_datum: v }))} />
           </div>
         </div>
 
