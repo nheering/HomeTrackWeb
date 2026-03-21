@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
+import DateInput from '@/components/ui/DateInput';
 import { INSERT_PREISPERIODE } from '@/lib/graphql/mutations';
 import { GET_VERTRAEGE } from '@/lib/graphql/queries';
 
@@ -51,11 +52,11 @@ export default function PreisperiodeModal({ vertragId, editData, onClose }: Prop
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="ht-label">Gültig ab *</label>
-            <input type="date" className="ht-input" value={form.gueltig_ab} onChange={e => setForm(f => ({ ...f, gueltig_ab: e.target.value }))} required />
+            <DateInput value={form.gueltig_ab} onChange={v => setForm(f => ({ ...f, gueltig_ab: v }))} required />
           </div>
           <div>
             <label className="ht-label">Gültig bis</label>
-            <input type="date" className="ht-input" value={form.gueltig_bis} onChange={e => setForm(f => ({ ...f, gueltig_bis: e.target.value }))} />
+            <DateInput value={form.gueltig_bis} onChange={v => setForm(f => ({ ...f, gueltig_bis: v }))} />
           </div>
         </div>
 

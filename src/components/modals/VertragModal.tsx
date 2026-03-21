@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
+import DateInput from '@/components/ui/DateInput';
 import { INSERT_VERTRAG, UPDATE_VERTRAG } from '@/lib/graphql/mutations';
 import { GET_VERTRAEGE, GET_ANBIETER, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
 
@@ -77,11 +78,11 @@ export default function VertragModal({ editData, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="ht-label">Vertragsbeginn *</label>
-            <input type="date" className="ht-input" value={form.beginn_datum} onChange={e => setForm(f => ({ ...f, beginn_datum: e.target.value }))} required />
+            <DateInput value={form.beginn_datum} onChange={v => setForm(f => ({ ...f, beginn_datum: v }))} required />
           </div>
           <div>
             <label className="ht-label">Vertragsende</label>
-            <input type="date" className="ht-input" value={form.ende_datum} onChange={e => setForm(f => ({ ...f, ende_datum: e.target.value }))} />
+            <DateInput value={form.ende_datum} onChange={v => setForm(f => ({ ...f, ende_datum: v }))} />
           </div>
         </div>
 

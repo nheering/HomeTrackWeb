@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star } from 'lucide-react';
+import { ChevronRight, Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
-import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE } from '@/lib/graphql/mutations';
+import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC } from '@/lib/graphql/queries';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
 import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
@@ -135,8 +135,8 @@ function VerbrauchstypenTab() {
             <div className="mt-3 pt-3 border-t border-bg-border space-y-2">
               <div className="flex items-center justify-between">
                 <p className="ht-section-title">Verbrauchsstellen</p>
-                <button 
-                  onClick={() => setShowCreateStelle(typ.id)} 
+                <button
+                  onClick={() => setShowCreateStelle(typ.id)}
                   className="ht-btn-ghost text-xs py-1"
                 >
                   <Plus className="w-3 h-3" /> Stelle
@@ -183,6 +183,10 @@ function VerbrauchstypenTab() {
               {(!typ.verbrauchsstellen || typ.verbrauchsstellen.length === 0) && (
                 <p className="text-xs text-tx-muted text-center py-2">Noch keine Verbrauchsstellen angelegt</p>
               )}
+
+              <div className="pt-2 border-t border-bg-border/50">
+                <VerbrauchNeuBerechnenButton typId={typ.id} />
+              </div>
             </div>
           )}
         </div>
@@ -378,5 +382,89 @@ function VertraegeTab() {
         />
       )}
     </div>
+  );
+}
+
+// ============================================================
+// Verbrauch Neuberechnen Button
+// ============================================================
+function VerbrauchNeuBerechnenButton({ typId }: { typId: string }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  const [fetchWerte] = useLazyQuery(GET_VERBRAUCHSWERTE_FOR_RECALC, { fetchPolicy: 'network-only' });
+  const [updateWert] = useMutation(UPDATE_VERBRAUCHSWERT);
+
+  const handleRecalc = async () => {
+    setStatus('loading');
+    setProgress({ done: 0, total: 0 });
+
+    try {
+      const { data } = await fetchWerte({ variables: { typ_id: typId } });
+      const werte: { id: string; datum: string; zaehlerstand: number; verbrauchsstelle_id: string | null }[] =
+        data?.verbrauchswert ?? [];
+
+      if (werte.length === 0) {
+        setStatus('done');
+        return;
+      }
+
+      // Gruppieren nach verbrauchsstelle_id
+      const groups: Record<string, typeof werte> = {};
+      for (const w of werte) {
+        const key = w.verbrauchsstelle_id ?? 'none';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(w);
+      }
+
+      const updates: { id: string; verbrauch: number }[] = [];
+      for (const gruppe of Object.values(groups)) {
+        const sorted = [...gruppe].sort((a, b) => a.datum.localeCompare(b.datum));
+        for (let i = 0; i < sorted.length; i++) {
+          const verbrauch = i === 0 ? 0 : Math.max(0, sorted[i].zaehlerstand - sorted[i - 1].zaehlerstand);
+          updates.push({ id: sorted[i].id, verbrauch });
+        }
+      }
+
+      setProgress({ done: 0, total: updates.length });
+
+      for (let i = 0; i < updates.length; i++) {
+        await updateWert({ variables: { id: updates[i].id, set: { verbrauch: updates[i].verbrauch } } });
+        setProgress({ done: i + 1, total: updates.length });
+      }
+
+      setStatus('done');
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch {
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleRecalc}
+      disabled={status === 'loading'}
+      className={`w-full flex items-center justify-center gap-2 text-xs py-2 rounded-lg border transition-colors
+        ${status === 'done'
+          ? 'border-green-500/30 bg-green-500/10 text-green-400'
+          : status === 'error'
+            ? 'border-red-500/30 bg-red-500/10 text-red-400'
+            : 'border-bg-border bg-bg-base/60 text-tx-muted hover:text-tx-primary hover:border-accent/30'
+        }`}
+    >
+      {status === 'loading' ? (
+        <>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {progress.total > 0 ? `${progress.done} / ${progress.total} neu berechnet…` : 'Lade Daten…'}
+        </>
+      ) : status === 'done' ? (
+        <><Check className="w-3.5 h-3.5" /> Verbrauch neu berechnet</>
+      ) : status === 'error' ? (
+        <><RefreshCw className="w-3.5 h-3.5" /> Fehler – erneut versuchen</>
+      ) : (
+        <><RefreshCw className="w-3.5 h-3.5" /> Verbrauch neu berechnen</>
+      )}
+    </button>
   );
 }

@@ -3,37 +3,82 @@
 import { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNhostClient } from '@nhost/nextjs';
-import { Loader2, Upload, Camera, X } from 'lucide-react';
+import { Loader2, Camera, X } from 'lucide-react';
 import Modal from './Modal';
-import { INSERT_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
-import { GET_DASHBOARD_DATA, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
+import DateInput from '@/components/ui/DateInput';
+import { INSERT_VERBRAUCHSWERT, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
+import { GET_DASHBOARD_DATA, GET_LETZTER_VERBRAUCHSWERT, GET_VORHERIGER_VERBRAUCHSWERT, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
+import { Verbrauchswert } from '@/types';
 
 interface Props {
   onClose: () => void;
+  editData?: Verbrauchswert;
+  defaultTypId?: string;
 }
 
-export default function VerbrauchswertModal({ onClose }: Props) {
+export default function VerbrauchswertModal({ onClose, editData, defaultTypId }: Props) {
+  const isEdit = !!editData;
   const nhost = useNhostClient();
   const { data: typenData } = useQuery(GET_VERBRAUCHSTYPEN);
   const typen = typenData?.verbrauchstyp ?? [];
 
   const [form, setForm] = useState({
-    verbrauchstyp_id:    '',
-    verbrauchsstelle_id: '',
-    datum:               new Date().toISOString().split('T')[0],
-    zaehlerstand:        '',
-    notizen:             '',
+    verbrauchstyp_id:    editData?.verbrauchstyp_id    || defaultTypId || '',
+    verbrauchsstelle_id: editData?.verbrauchsstelle_id || '',
+    datum:               editData?.datum               || new Date().toISOString().split('T')[0],
+    zaehlerstand:        editData ? String(editData.zaehlerstand) : '',
+    notizen:             editData?.notizen             || '',
   });
-  const [imageFile, setImageFile]   = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploading, setUploading]   = useState(false);
+
+  const [imageFile, setImageFile]     = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    editData?.bild_url ?? null
+  );
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedTyp = typen.find((t: any) => t.id === form.verbrauchstyp_id);
   const stellen = selectedTyp?.verbrauchsstellen ?? [];
 
+  const canQuery = !!form.verbrauchstyp_id && !!form.verbrauchsstelle_id;
+
+  // Insert mode: fetch the most recent entry for this type+stelle
+  const { data: letzterData } = useQuery(GET_LETZTER_VERBRAUCHSWERT, {
+    variables: { typ_id: form.verbrauchstyp_id, stelle_id: form.verbrauchsstelle_id },
+    skip: isEdit || !canQuery,
+    fetchPolicy: 'network-only',
+  });
+
+  // Edit mode: fetch the entry just before (or on) the current datum, excluding the entry being edited
+  const { data: vorherigerData } = useQuery(GET_VORHERIGER_VERBRAUCHSWERT, {
+    variables: {
+      typ_id:     form.verbrauchstyp_id,
+      stelle_id:  form.verbrauchsstelle_id,
+      datum:      form.datum,
+      exclude_id: editData?.id ?? '00000000-0000-0000-0000-000000000000',
+    },
+    skip: !isEdit || !canQuery || !form.datum,
+    fetchPolicy: 'network-only',
+  });
+
+  const letzterWert = isEdit
+    ? (vorherigerData?.verbrauchswert?.[0] ?? null)
+    : (letzterData?.verbrauchswert?.[0] ?? null);
+
+  const aktuellerStand = parseFloat(form.zaehlerstand);
+  const verbrauch = letzterWert && form.zaehlerstand && !isNaN(aktuellerStand)
+    ? aktuellerStand - letzterWert.zaehlerstand
+    : null;
+
+  const refetchQueries = [{ query: GET_DASHBOARD_DATA }];
+
   const [insertWert, { loading: insertLoading }] = useMutation(INSERT_VERBRAUCHSWERT, {
-    refetchQueries: [{ query: GET_DASHBOARD_DATA }],
+    refetchQueries,
+    onCompleted: onClose,
+  });
+
+  const [updateWert, { loading: updateLoading }] = useMutation(UPDATE_VERBRAUCHSWERT, {
+    refetchQueries,
     onCompleted: onClose,
   });
 
@@ -48,9 +93,8 @@ export default function VerbrauchswertModal({ onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let bild_url: string | undefined;
+    let bild_url: string | undefined = editData?.bild_url;
 
-    // Bild hochladen wenn vorhanden
     if (imageFile) {
       setUploading(true);
       try {
@@ -67,24 +111,44 @@ export default function VerbrauchswertModal({ onClose }: Props) {
       setUploading(false);
     }
 
-    insertWert({
-      variables: {
-        obj: {
-          verbrauchstyp_id:    form.verbrauchstyp_id,
-          verbrauchsstelle_id: form.verbrauchsstelle_id || null,
-          datum:               form.datum,
-          zaehlerstand:        parseFloat(form.zaehlerstand),
-          notizen:             form.notizen || null,
-          bild_url,
+    const berechneterVerbrauch = verbrauch !== null ? Math.max(0, verbrauch) : null;
+
+    if (isEdit) {
+      updateWert({
+        variables: {
+          id: editData!.id,
+          set: {
+            verbrauchstyp_id:    form.verbrauchstyp_id,
+            verbrauchsstelle_id: form.verbrauchsstelle_id || null,
+            datum:               form.datum,
+            zaehlerstand:        parseFloat(form.zaehlerstand),
+            verbrauch:           berechneterVerbrauch,
+            notizen:             form.notizen || null,
+            bild_url,
+          },
         },
-      },
-    });
+      });
+    } else {
+      insertWert({
+        variables: {
+          obj: {
+            verbrauchstyp_id:    form.verbrauchstyp_id,
+            verbrauchsstelle_id: form.verbrauchsstelle_id || null,
+            datum:               form.datum,
+            zaehlerstand:        parseFloat(form.zaehlerstand),
+            verbrauch:           berechneterVerbrauch,
+            notizen:             form.notizen || null,
+            bild_url,
+          },
+        },
+      });
+    }
   };
 
-  const loading = insertLoading || uploading;
+  const loading = insertLoading || updateLoading || uploading;
 
   return (
-    <Modal title="Zählerstand erfassen" onClose={onClose}>
+    <Modal title={isEdit ? 'Eintrag bearbeiten' : 'Zählerstand erfassen'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Verbrauchstyp */}
         <div>
@@ -92,7 +156,11 @@ export default function VerbrauchswertModal({ onClose }: Props) {
           <select
             className="ht-input"
             value={form.verbrauchstyp_id}
-            onChange={e => setForm(f => ({ ...f, verbrauchstyp_id: e.target.value, verbrauchsstelle_id: '' }))}
+            onChange={e => {
+              const typ = typen.find((t: any) => t.id === e.target.value);
+              const standardStelle = typ?.verbrauchsstellen?.find((s: any) => s.ist_standard);
+              setForm(f => ({ ...f, verbrauchstyp_id: e.target.value, verbrauchsstelle_id: standardStelle?.id ?? '' }));
+            }}
             required
           >
             <option value="">– Typ wählen –</option>
@@ -124,7 +192,7 @@ export default function VerbrauchswertModal({ onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="ht-label">Datum *</label>
-            <input type="date" className="ht-input" value={form.datum} onChange={e => setForm(f => ({ ...f, datum: e.target.value }))} required />
+            <DateInput value={form.datum} onChange={v => setForm(f => ({ ...f, datum: v }))} required />
           </div>
           <div>
             <label className="ht-label">Zählerstand *</label>
@@ -139,6 +207,23 @@ export default function VerbrauchswertModal({ onClose }: Props) {
             />
           </div>
         </div>
+
+        {letzterWert && (
+          <div className="rounded-lg bg-bg-base/60 border border-bg-border px-3 py-2 text-xs space-y-1">
+            <div className="flex justify-between text-tx-muted">
+              <span>Vorheriger Stand</span>
+              <span className="font-mono">{Number(letzterWert.zaehlerstand).toLocaleString('de-DE', { maximumFractionDigits: 3 })} {selectedTyp?.einheit}</span>
+            </div>
+            {verbrauch !== null && (
+              <div className="flex justify-between">
+                <span className="text-tx-muted">Verbrauch</span>
+                <span className={`font-mono font-medium ${verbrauch < 0 ? 'text-red-400' : 'text-accent'}`}>
+                  {verbrauch < 0 ? '⚠ ' : ''}{Number(verbrauch).toLocaleString('de-DE', { maximumFractionDigits: 3 })} {selectedTyp?.einheit}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Foto */}
         <div>
@@ -175,7 +260,9 @@ export default function VerbrauchswertModal({ onClose }: Props) {
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="ht-btn-secondary flex-1 justify-center">Abbrechen</button>
           <button type="submit" disabled={loading} className="ht-btn-primary flex-1 justify-center">
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{uploading ? 'Foto wird hochgeladen...' : 'Speichern...'}</> : 'Speichern'}
+            {loading
+              ? <><Loader2 className="w-4 h-4 animate-spin" />{uploading ? 'Foto wird hochgeladen...' : 'Speichern...'}</>
+              : isEdit ? 'Speichern' : 'Erfassen'}
           </button>
         </div>
       </form>

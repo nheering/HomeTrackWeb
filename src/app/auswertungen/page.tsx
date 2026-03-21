@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { format, subMonths, startOfYear } from 'date-fns';
+import { format, subMonths, startOfYear, startOfMonth } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { BarChart3, Table2, Loader2, Euro, Gauge } from 'lucide-react';
 import {
@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import Navigation from '@/components/layout/Navigation';
 import { GraphQLErrorBoundary } from '@/components/error';
+import DateInput from '@/components/ui/DateInput';
 import { GET_AUSWERTUNG_DATEN, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
 import { Verbrauchstyp, Verbrauchswert } from '@/types';
 
@@ -36,6 +37,7 @@ const ZEITRAEUME = [
   { label: '1 Jahr', months: 12 },
   { label: 'Dieses Jahr', months: 0 },
 ];
+const CUSTOM_IDX = 4;
 
 export default function AuswertungenPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthenticationStatus();
@@ -50,14 +52,19 @@ export default function AuswertungenPage() {
   const [zeitraumIdx, setZeitraumIdx] = useState(2);
   const [selectedTypen, setSelectedTypen] = useState<string[]>([]);
 
+  const now = new Date();
+  const [customVon, setCustomVon] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
+  const [customBis, setCustomBis] = useState(format(now, 'yyyy-MM-dd'));
+
   const { data: typenData, refetch: refetchTypen } = useQuery(GET_VERBRAUCHSTYPEN, { skip: !isAuthenticated });
   const verbrauchstypen: Verbrauchstyp[] = typenData?.verbrauchstyp ?? [];
 
-  const now = new Date();
-  const von = zeitraumIdx === 3
-    ? format(startOfYear(now), 'yyyy-MM-dd')
-    : format(subMonths(now, ZEITRAEUME[zeitraumIdx].months), 'yyyy-MM-dd');
-  const bis = format(now, 'yyyy-MM-dd');
+  const von = zeitraumIdx === CUSTOM_IDX
+    ? customVon
+    : zeitraumIdx === 3
+      ? format(startOfYear(now), 'yyyy-MM-dd')
+      : format(subMonths(now, ZEITRAEUME[zeitraumIdx].months), 'yyyy-MM-dd');
+  const bis = zeitraumIdx === CUSTOM_IDX ? customBis : format(now, 'yyyy-MM-dd');
 
   const activeTypen = selectedTypen.length > 0 ? selectedTypen : verbrauchstypen.map((t) => t.id);
 
@@ -125,7 +132,30 @@ export default function AuswertungenPage() {
                 {z.label}
               </button>
             ))}
+            <button
+              onClick={() => setZeitraumIdx(CUSTOM_IDX)}
+              className={`ht-badge cursor-pointer border transition-all duration-150
+                ${zeitraumIdx === CUSTOM_IDX
+                  ? 'bg-accent/10 border-accent/40 text-accent'
+                  : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
+                }`}
+            >
+              Eigener Zeitraum
+            </button>
           </div>
+
+          {zeitraumIdx === CUSTOM_IDX && (
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1">
+                <label className="ht-label">Von</label>
+                <DateInput value={customVon} onChange={setCustomVon} max={customBis} />
+              </div>
+              <div className="flex-1">
+                <label className="ht-label">Bis</label>
+                <DateInput value={customBis} onChange={setCustomBis} min={customVon} max={format(now, 'yyyy-MM-dd')} />
+              </div>
+            </div>
+          )}
 
           {verbrauchstypen.length > 0 && (
             <>
@@ -277,15 +307,35 @@ function TableView({ rawData }: TableViewProps) {
 function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[]): ChartDataPoint[] {
   if (!verbrauchswerte.length) return [];
 
-  const byDate: Record<string, ChartDataPoint> = {};
+  // Gruppieren nach Typ + Stelle, dann Differenz zwischen aufeinanderfolgenden Zählerständen berechnen
+  const groups: Record<string, Verbrauchswert[]> = {};
   for (const w of verbrauchswerte) {
-    const d = w.datum;
-    if (!byDate[d]) byDate[d] = { datum: format(new Date(d), 'dd.MM.') };
-    const typName = w.verbrauchstyp?.name;
-    if (typName) {
-      byDate[d][typName] = (byDate[d][typName] ?? 0) + (w.verbrauch ?? 0);
+    const key = `${w.verbrauchstyp?.id}-${w.verbrauchsstelle?.id ?? 'none'}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(w);
+  }
+
+  const byDate: Record<string, ChartDataPoint> = {};
+
+  for (const werte of Object.values(groups)) {
+    const sorted = [...werte].sort((a, b) => a.datum.localeCompare(b.datum));
+    for (let i = 0; i < sorted.length; i++) {
+      const w = sorted[i];
+      if (!byDate[w.datum]) byDate[w.datum] = { datum: format(new Date(w.datum), 'dd.MM.yy') };
+      const typName = w.verbrauchstyp?.name;
+      if (!typName) continue;
+
+      const verbrauch = w.verbrauch != null
+        ? w.verbrauch
+        : i > 0
+          ? Math.max(0, w.zaehlerstand - sorted[i - 1].zaehlerstand)
+          : 0;
+
+      byDate[w.datum][typName] = ((byDate[w.datum][typName] as number) ?? 0) + verbrauch;
     }
   }
 
-  return Object.values(byDate).sort((a, b) => a.datum.localeCompare(b.datum));
+  return Object.entries(byDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, point]) => point);
 }

@@ -1,6 +1,62 @@
 import { gql } from '@apollo/client';
 
 // ============================================================
+// ALLE VERBRAUCHSWERTE EINES TYPS (für Neuberechnung)
+// ============================================================
+export const GET_VERBRAUCHSWERTE_FOR_RECALC = gql`
+  query GetVerbrauchswerteForRecalc($typ_id: uuid!) {
+    verbrauchswert(
+      where: { verbrauchstyp_id: { _eq: $typ_id } }
+      order_by: [{ verbrauchsstelle_id: asc }, { datum: asc }]
+    ) {
+      id
+      datum
+      zaehlerstand
+      verbrauchsstelle_id
+    }
+  }
+`;
+
+// ============================================================
+// LETZTER VERBRAUCHSWERT (für Verbrauchsberechnung beim Erfassen)
+// ============================================================
+export const GET_LETZTER_VERBRAUCHSWERT = gql`
+  query GetLetzterVerbrauchswert($typ_id: uuid!, $stelle_id: uuid!) {
+    verbrauchswert(
+      where: {
+        verbrauchstyp_id: { _eq: $typ_id }
+        verbrauchsstelle_id: { _eq: $stelle_id }
+      }
+      order_by: { datum: desc }
+      limit: 1
+    ) {
+      id datum zaehlerstand
+    }
+  }
+`;
+
+// ============================================================
+// VORHERIGER VERBRAUCHSWERT (für Verbrauchsberechnung beim Editieren)
+// Sucht den letzten Eintrag VOR dem aktuellen Datum, ohne den aktuellen Eintrag
+// ============================================================
+export const GET_VORHERIGER_VERBRAUCHSWERT = gql`
+  query GetVorherigerVerbrauchswert($typ_id: uuid!, $stelle_id: uuid!, $datum: date!, $exclude_id: uuid!) {
+    verbrauchswert(
+      where: {
+        verbrauchstyp_id: { _eq: $typ_id }
+        verbrauchsstelle_id: { _eq: $stelle_id }
+        datum: { _lte: $datum }
+        id: { _neq: $exclude_id }
+      }
+      order_by: { datum: desc }
+      limit: 1
+    ) {
+      id datum zaehlerstand
+    }
+  }
+`;
+
+// ============================================================
 // VERBRAUCHSTYPEN
 // ============================================================
 export const GET_VERBRAUCHSTYPEN = gql`
@@ -137,6 +193,7 @@ export const GET_VERBRAUCHSWERTE_LIST = gql`
       limit: 100
     ) {
       id datum zaehlerstand verbrauch bild_url notizen erstellt_am
+      verbrauchstyp_id verbrauchsstelle_id
       verbrauchstyp { id name symbol farbe einheit }
       verbrauchsstelle { id bezeichnung }
     }

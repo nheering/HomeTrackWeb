@@ -3,10 +3,11 @@
 import { useQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import VerbrauchsKachel from '@/components/home/VerbrauchsKachel';
+import VerbrauchsDetailDrawer from '@/components/home/VerbrauchsDetailDrawer';
 import { GraphQLErrorBoundary } from '@/components/error';
 import { GET_DASHBOARD_DATA } from '@/lib/graphql/queries';
 import { Verbrauchstyp } from '@/types';
@@ -25,6 +26,8 @@ export default function HomePage() {
     skip: !isAuthenticated,
     fetchPolicy: 'cache-and-network',
   });
+
+  const [selectedTyp, setSelectedTyp] = useState<Verbrauchstyp | null>(null);
 
   if (authLoading || loading) {
     return (
@@ -89,7 +92,7 @@ export default function HomePage() {
                     key={typ.id}
                     verbrauchstyp={typ}
                     letzterWert={letzterWert}
-                    onClick={() => {/* TODO: Detail-Ansicht */}}
+                    onClick={() => setSelectedTyp(typ)}
                   />
                 );
               })}
@@ -99,6 +102,13 @@ export default function HomePage() {
       </main>
 
       <Navigation />
+
+      {selectedTyp && (
+        <VerbrauchsDetailDrawer
+          verbrauchstyp={selectedTyp}
+          onClose={() => setSelectedTyp(null)}
+        />
+      )}
     </div>
   );
 }
