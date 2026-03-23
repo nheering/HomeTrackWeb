@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check } from 'lucide-react';
+import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
+import { usePlusAction } from '@/lib/plus-action-context';
 import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC } from '@/lib/graphql/queries';
 import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
@@ -27,6 +28,9 @@ export default function EinstellungenPage() {
   }, [isAuthenticated, authLoading, router]);
 
   const [activeTab, setActiveTab] = useState<Tab>('verbrauchstypen');
+  const [showCreate, setShowCreate] = useState(false);
+
+  usePlusAction(() => setShowCreate(true), [activeTab]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'verbrauchstypen', label: 'Typen'    },
@@ -66,9 +70,15 @@ export default function EinstellungenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 pt-4">
-        {activeTab === 'verbrauchstypen' && <VerbrauchstypenTab />}
-        {activeTab === 'anbieter'        && <AnbieterTab />}
-        {activeTab === 'vertraege'       && <VertraegeTab />}
+        {activeTab === 'verbrauchstypen' && (
+          <VerbrauchstypenTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
+        )}
+        {activeTab === 'anbieter' && (
+          <AnbieterTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
+        )}
+        {activeTab === 'vertraege' && (
+          <VertraegeTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
+        )}
       </main>
 
       <Navigation />
@@ -79,17 +89,15 @@ export default function EinstellungenPage() {
 // ============================================================
 // Verbrauchstypen Tab
 // ============================================================
-function VerbrauchstypenTab() {
+function VerbrauchstypenTab({ showCreate, onCreateClose }: { showCreate: boolean; onCreateClose: () => void }) {
   const { data, loading, refetch } = useQuery(GET_VERBRAUCHSTYPEN);
   const [deleteTyp] = useMutation(DELETE_VERBRAUCHSTYP, { onCompleted: () => refetch() });
   const [setStandard] = useMutation(SET_STANDARD_STELLE, { onCompleted: () => refetch() });
   const [deleteStelle] = useMutation(DELETE_VERBRAUCHSSTELLE, { onCompleted: () => refetch() });
-  
-  const [editItem, setEditItem] = useState<any | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  
-  const [editStelle, setEditStelle] = useState<any | null>(null);
+
+  const [editItem, setEditItem]               = useState<any | null>(null);
+  const [expanded, setExpanded]               = useState<string | null>(null);
+  const [editStelle, setEditStelle]           = useState<any | null>(null);
   const [showCreateStelle, setShowCreateStelle] = useState<string | null>(null);
 
   const typen = data?.verbrauchstyp ?? [];
@@ -98,9 +106,6 @@ function VerbrauchstypenTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="ht-section-title">Verbrauchstypen ({typen.length})</p>
-        <button onClick={() => setShowCreate(true)} className="ht-btn-primary text-xs">
-          <Plus className="w-3.5 h-3.5" /> Neu
-        </button>
       </div>
 
       {loading && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-accent animate-spin" /></div>}
@@ -195,7 +200,7 @@ function VerbrauchstypenTab() {
       {(showCreate || editItem) && (
         <VerbrauchstypModal
           editData={editItem}
-          onClose={() => { setShowCreate(false); setEditItem(null); refetch(); }}
+          onClose={() => { onCreateClose(); setEditItem(null); refetch(); }}
         />
       )}
 
@@ -213,11 +218,10 @@ function VerbrauchstypenTab() {
 // ============================================================
 // Anbieter Tab
 // ============================================================
-function AnbieterTab() {
+function AnbieterTab({ showCreate, onCreateClose }: { showCreate: boolean; onCreateClose: () => void }) {
   const { data, loading, refetch } = useQuery(GET_ANBIETER);
   const [deleteAnbieter] = useMutation(DELETE_ANBIETER, { onCompleted: () => refetch() });
   const [editItem, setEditItem] = useState<any | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const anbieter = data?.anbieter ?? [];
@@ -226,9 +230,6 @@ function AnbieterTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="ht-section-title">Anbieter ({anbieter.length})</p>
-        <button onClick={() => setShowCreate(true)} className="ht-btn-primary text-xs">
-          <Plus className="w-3.5 h-3.5" /> Neu
-        </button>
       </div>
 
       {loading && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-accent animate-spin" /></div>}
@@ -269,7 +270,7 @@ function AnbieterTab() {
       {(showCreate || editItem) && (
         <AnbieterModal
           editData={editItem}
-          onClose={() => { setShowCreate(false); setEditItem(null); refetch(); }}
+          onClose={() => { onCreateClose(); setEditItem(null); refetch(); }}
         />
       )}
     </div>
@@ -279,11 +280,10 @@ function AnbieterTab() {
 // ============================================================
 // Verträge Tab
 // ============================================================
-function VertraegeTab() {
+function VertraegeTab({ showCreate, onCreateClose }: { showCreate: boolean; onCreateClose: () => void }) {
   const { data, loading, refetch } = useQuery(GET_VERTRAEGE);
   const [deleteVertrag] = useMutation(DELETE_VERTRAG, { onCompleted: () => refetch() });
   const [editItem, setEditItem] = useState<any | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showPreis, setShowPreis] = useState<string | null>(null);
 
@@ -295,9 +295,6 @@ function VertraegeTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="ht-section-title">Verträge ({vertraege.length})</p>
-        <button onClick={() => setShowCreate(true)} className="ht-btn-primary text-xs">
-          <Plus className="w-3.5 h-3.5" /> Neu
-        </button>
       </div>
 
       {loading && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-accent animate-spin" /></div>}
@@ -372,7 +369,7 @@ function VertraegeTab() {
       {(showCreate || editItem) && (
         <VertragModal
           editData={editItem}
-          onClose={() => { setShowCreate(false); setEditItem(null); refetch(); }}
+          onClose={() => { onCreateClose(); setEditItem(null); refetch(); }}
         />
       )}
       {showPreis && (

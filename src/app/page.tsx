@@ -1,15 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuery } from '@apollo/client';
 import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import VerbrauchsKachel from '@/components/home/VerbrauchsKachel';
 import VerbrauchsDetailDrawer from '@/components/home/VerbrauchsDetailDrawer';
+import VerbrauchswertModal from '@/components/modals/VerbrauchswertModal';
 import { GraphQLErrorBoundary } from '@/components/error';
 import { GET_DASHBOARD_DATA } from '@/lib/graphql/queries';
+import { usePlusAction } from '@/lib/plus-action-context';
 import { Verbrauchstyp } from '@/types';
 
 export default function HomePage() {
@@ -17,9 +19,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/auth/login');
-    }
+    if (!authLoading && !isAuthenticated) router.push('/auth/login');
   }, [isAuthenticated, authLoading, router]);
 
   const { data, loading, error, refetch } = useQuery(GET_DASHBOARD_DATA, {
@@ -27,7 +27,10 @@ export default function HomePage() {
     fetchPolicy: 'cache-and-network',
   });
 
-  const [selectedTyp, setSelectedTyp] = useState<Verbrauchstyp | null>(null);
+  const [selectedTyp, setSelectedTyp]       = useState<Verbrauchstyp | null>(null);
+  const [showNewModal, setShowNewModal]      = useState(false);
+
+  usePlusAction(() => setShowNewModal(true), []);
 
   if (authLoading || loading) {
     return (
@@ -46,9 +49,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-lg font-semibold text-tx-primary mb-2">Daten konnten nicht geladen werden</h2>
           <p className="text-sm text-tx-secondary mb-6">{error.message}</p>
-          <button onClick={() => refetch()} className="ht-btn-primary">
-            Erneut versuchen
-          </button>
+          <button onClick={() => refetch()} className="ht-btn-primary">Erneut versuchen</button>
         </div>
       </div>
     );
@@ -58,7 +59,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-bg-base bg-grid pb-24">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-bg-base/90 backdrop-blur-xl border-b border-bg-border px-4 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
@@ -67,11 +67,7 @@ export default function HomePage() {
             </h1>
             <p className="text-xs text-tx-muted">Verbrauchsübersicht</p>
           </div>
-          <button
-            onClick={() => refetch()}
-            className="ht-btn-ghost"
-            title="Aktualisieren"
-          >
+          <button onClick={() => refetch()} className="ht-btn-ghost" title="Aktualisieren">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -85,8 +81,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {verbrauchstypen.map((typ) => {
                 const standardStelle = typ.verbrauchsstellen?.[0];
-                const letzterWert = standardStelle?.verbrauchswerte?.[0];
-
+                const letzterWert    = standardStelle?.verbrauchswerte?.[0];
                 return (
                   <VerbrauchsKachel
                     key={typ.id}
@@ -106,7 +101,13 @@ export default function HomePage() {
       {selectedTyp && (
         <VerbrauchsDetailDrawer
           verbrauchstyp={selectedTyp}
-          onClose={() => setSelectedTyp(null)}
+          onClose={() => { setSelectedTyp(null); refetch(); }}
+        />
+      )}
+
+      {showNewModal && (
+        <VerbrauchswertModal
+          onClose={() => { setShowNewModal(false); refetch(); }}
         />
       )}
     </div>
@@ -121,7 +122,7 @@ function EmptyState() {
       </div>
       <h2 className="text-lg font-semibold text-tx-primary mb-2">Noch keine Verbrauchstypen</h2>
       <p className="text-sm text-tx-secondary max-w-xs mb-6">
-        Tippe auf das <span className="text-accent font-medium">+</span> unten in der Mitte um deinen ersten Verbrauchstyp anzulegen.
+        Lege zuerst einen Verbrauchstyp in den <span className="text-accent font-medium">Einstellungen</span> an.
       </p>
       <div className="flex gap-3 flex-wrap justify-center">
         {['⚡ Strom', '🔥 Gas', '💧 Wasser'].map(label => (
