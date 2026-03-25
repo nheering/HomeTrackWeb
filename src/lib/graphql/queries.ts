@@ -185,6 +185,17 @@ export const GET_AUSWERTUNG_DATEN = gql`
   }
 `;
 
+// ============================================================
+// USER SETTINGS
+// ============================================================
+export const GET_USER_SETTINGS = gql`
+  query GetUserSettings {
+    user_settings {
+      nav_position
+    }
+  }
+`;
+
 export const GET_VERBRAUCHSWERTE_LIST = gql`
   query GetVerbrauchswerteList($typ_id: uuid) {
     verbrauchswert(

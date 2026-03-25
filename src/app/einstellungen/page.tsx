@@ -15,8 +15,11 @@ import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
 import { useSignOut } from '@nhost/nextjs';
+import { GET_USER_SETTINGS } from '@/lib/graphql/queries';
+import { UPSERT_USER_SETTINGS } from '@/lib/graphql/mutations';
+import { useNavSettings } from '@/lib/nav-settings-context';
 
-type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege';
+type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'darstellung';
 
 export default function EinstellungenPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthenticationStatus();
@@ -30,12 +33,13 @@ export default function EinstellungenPage() {
   const [activeTab, setActiveTab] = useState<Tab>('verbrauchstypen');
   const [showCreate, setShowCreate] = useState(false);
 
-  usePlusAction(() => setShowCreate(true), [activeTab]);
+  usePlusAction(activeTab !== 'darstellung' ? () => setShowCreate(true) : null, [activeTab]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'verbrauchstypen', label: 'Typen'    },
-    { id: 'anbieter',        label: 'Anbieter' },
-    { id: 'vertraege',       label: 'Verträge' },
+    { id: 'verbrauchstypen', label: 'Typen'       },
+    { id: 'anbieter',        label: 'Anbieter'    },
+    { id: 'vertraege',       label: 'Verträge'    },
+    { id: 'darstellung',     label: 'Darstellung' },
   ];
 
   return (
@@ -79,6 +83,7 @@ export default function EinstellungenPage() {
         {activeTab === 'vertraege' && (
           <VertraegeTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
         )}
+        {activeTab === 'darstellung' && <DarstellungTab />}
       </main>
 
       <Navigation />
@@ -463,5 +468,60 @@ function VerbrauchNeuBerechnenButton({ typId }: { typId: string }) {
         <><RefreshCw className="w-3.5 h-3.5" /> Verbrauch neu berechnen</>
       )}
     </button>
+  );
+}
+
+// ============================================================
+// Darstellung Tab
+// ============================================================
+function DarstellungTab() {
+  const { navPosition } = useNavSettings();
+  const { data, refetch } = useQuery(GET_USER_SETTINGS);
+  const [upsertSettings] = useMutation(UPSERT_USER_SETTINGS, { onCompleted: () => refetch() });
+
+  const current: string = data?.user_settings?.[0]?.nav_position ?? navPosition;
+
+  const options: { value: string; label: string; description: string }[] = [
+    {
+      value: 'bottom',
+      label: 'Menü unten',
+      description: 'Navigationsleiste am unteren Rand – Standard auf allen Geräten.',
+    },
+    {
+      value: 'left',
+      label: 'Menü links',
+      description: 'Auf dem Desktop wird die Navigation als schmale Seitenleiste links angezeigt. Auf Mobilgeräten bleibt das Menü immer unten.',
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="ht-section-title">Menüposition</p>
+
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          onClick={() => upsertSettings({ variables: { nav_position: opt.value } })}
+          className={`w-full text-left ht-card transition-all duration-200
+            ${current === opt.value
+              ? 'border border-accent/50 bg-accent/5'
+              : 'border border-transparent hover:border-bg-border'
+            }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center
+              ${current === opt.value ? 'border-accent' : 'border-bg-border'}`}>
+              {current === opt.value && (
+                <div className="w-2 h-2 rounded-full bg-accent" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-tx-primary">{opt.label}</p>
+              <p className="text-xs text-tx-muted mt-0.5">{opt.description}</p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
   );
 }

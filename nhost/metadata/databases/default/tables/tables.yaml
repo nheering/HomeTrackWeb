@@ -12,6 +12,7 @@
 - "!include public_verbrauchsstelle.yaml"
 - "!include public_verbrauchstyp.yaml"
 - "!include public_verbrauchswert.yaml"
+- "!include public_user_settings.yaml"
 - "!include public_vertrag.yaml"
 - "!include storage_buckets.yaml"
 - "!include storage_files.yaml"

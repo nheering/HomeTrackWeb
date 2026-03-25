@@ -6,6 +6,7 @@ import { ApolloClient, ApolloProvider, InMemoryCache, createHttpLink } from '@ap
 import { setContext } from '@apollo/client/link/context';
 import nhost, { graphqlUrl } from '@/lib/nhost';
 import { PlusActionProvider } from '@/lib/plus-action-context';
+import { NavSettingsProvider } from '@/lib/nav-settings-context';
 
 export function NhostProvider({ children }: { children: React.ReactNode }) {
   const apolloClient = useMemo(() => {
@@ -31,9 +32,11 @@ export function NhostProvider({ children }: { children: React.ReactNode }) {
   return (
     <NhostReactProvider nhost={nhost}>
       <ApolloProvider client={apolloClient}>
-        <PlusActionProvider>
-          {children}
-        </PlusActionProvider>
+        <NavSettingsProvider>
+          <PlusActionProvider>
+            {children}
+          </PlusActionProvider>
+        </NavSettingsProvider>
       </ApolloProvider>
     </NhostReactProvider>
   );
