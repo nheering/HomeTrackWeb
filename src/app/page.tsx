@@ -81,12 +81,44 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {verbrauchstypen.map((typ) => {
                 const standardStelle = typ.verbrauchsstellen?.[0];
-                const letzterWert    = standardStelle?.verbrauchswerte?.[0];
+                const allWerte       = standardStelle?.verbrauchswerte ?? [];
+                const letzterWert    = allWerte[0];
+
+                // Verbrauchswerte mit echtem Verbrauch (> 0)
+                const mitVerbrauch = allWerte.filter(w => (w.verbrauch ?? 0) > 0);
+
+                // Durchschnitt letzter 3 Monate mit Daten
+                const monatsKeys = Array.from(new Set(
+                  mitVerbrauch.map(w => w.datum.substring(0, 7)) // "yyyy-MM"
+                ));
+                const letzte3Monate = monatsKeys.slice(0, 3);
+                const werteLetzter3Monate = mitVerbrauch.filter(w =>
+                  letzte3Monate.includes(w.datum.substring(0, 7))
+                );
+                const dreiMonatsDurchschnitt = werteLetzter3Monate.length > 0
+                  ? werteLetzter3Monate.reduce((s, w) => s + (w.verbrauch ?? 0), 0) / werteLetzter3Monate.length
+                  : undefined;
+
+                // Gesamtdurchschnitt
+                const gesamtDurchschnitt = mitVerbrauch.length > 0
+                  ? mitVerbrauch.reduce((s, w) => s + (w.verbrauch ?? 0), 0) / mitVerbrauch.length
+                  : undefined;
+
+                // Min / Max über alle Werte
+                const verbräuche = mitVerbrauch.map(w => w.verbrauch ?? 0);
+                const minVerbrauch = verbräuche.length > 0 ? Math.min(...verbräuche) : undefined;
+                const maxVerbrauch = verbräuche.length > 0 ? Math.max(...verbräuche) : undefined;
+
                 return (
                   <VerbrauchsKachel
                     key={typ.id}
                     verbrauchstyp={typ}
                     letzterWert={letzterWert}
+                    dreiMonatsDurchschnitt={dreiMonatsDurchschnitt}
+                    gesamtDurchschnitt={gesamtDurchschnitt}
+                    minVerbrauch={minVerbrauch}
+                    maxVerbrauch={maxVerbrauch}
+                    stelleBezeichnung={standardStelle?.bezeichnung}
                     onClick={() => setSelectedTyp(typ)}
                   />
                 );

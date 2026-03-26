@@ -103,7 +103,7 @@ export const GET_DASHBOARD_DATA = gql`
       id name einheit symbol farbe
       verbrauchsstellen(order_by: { ist_standard: desc, erstellt_am: asc }, limit: 1) {
         id bezeichnung
-        verbrauchswerte(order_by: { datum: desc }, limit: 1) {
+        verbrauchswerte(order_by: { datum: desc }, limit: 200) {
           id datum zaehlerstand verbrauch
         }
       }

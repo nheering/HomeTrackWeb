@@ -1,6 +1,6 @@
 'use client';
 
-import { format, subMonths, startOfYear } from 'date-fns';
+import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
 import { Verbrauchstyp, Verbrauchswert } from '@/types';
@@ -9,7 +9,10 @@ interface KachelProps {
   verbrauchstyp: Verbrauchstyp;
   letzterWert?: Verbrauchswert;
   dreiMonatsDurchschnitt?: number;
-  jahresgesamt?: number;
+  gesamtDurchschnitt?: number;
+  minVerbrauch?: number;
+  maxVerbrauch?: number;
+  stelleBezeichnung?: string;
   onClick?: () => void;
 }
 
@@ -17,7 +20,10 @@ export default function VerbrauchsKachel({
   verbrauchstyp,
   letzterWert,
   dreiMonatsDurchschnitt,
-  jahresgesamt,
+  gesamtDurchschnitt,
+  minVerbrauch,
+  maxVerbrauch,
+  stelleBezeichnung,
   onClick,
 }: KachelProps) {
   const { name, symbol, farbe, einheit } = verbrauchstyp;
@@ -34,7 +40,7 @@ export default function VerbrauchsKachel({
   return (
     <div className="ht-kachel animate-fade-in" onClick={onClick}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2.5">
           {/* Symbol / Icon */}
           <div
@@ -50,6 +56,12 @@ export default function VerbrauchsKachel({
         </div>
         <TrendIcon className={`w-4 h-4 ${trendColor}`} />
       </div>
+
+      {/* Standardstelle */}
+      {stelleBezeichnung && (
+        <p className="text-[10px] text-tx-muted mb-3 pl-[52px]">{stelleBezeichnung}</p>
+      )}
+      {!stelleBezeichnung && <div className="mb-3" />}
 
       {/* Letzter Verbrauchswert */}
       <div className="ht-divider" />
@@ -71,18 +83,34 @@ export default function VerbrauchsKachel({
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mb-3">
             <StatBox
-              label="Ø 3 Monate"
+              label="Ø letzte 3 Monate"
               value={dreiMonatsDurchschnitt}
               unit={einheit}
               color={color}
             />
             <StatBox
-              label={`Gesamt ${new Date().getFullYear()}`}
-              value={jahresgesamt}
+              label="Ø gesamt"
+              value={gesamtDurchschnitt}
               unit={einheit}
               color={color}
+            />
+          </div>
+
+          {/* Min / Max */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatBox
+              label="Min. Verbrauch"
+              value={minVerbrauch}
+              unit={einheit}
+              color="var(--color-tx-secondary, #94a3b8)"
+            />
+            <StatBox
+              label="Max. Verbrauch"
+              value={maxVerbrauch}
+              unit={einheit}
+              color="var(--color-tx-secondary, #94a3b8)"
             />
           </div>
         </>

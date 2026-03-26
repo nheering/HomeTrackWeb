@@ -1,25 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
-import { useAuthenticationStatus } from '@nhost/nextjs';
+import { useAuthenticationStatus, useSignOut, useChangePassword, useUserDisplayName, useUserAvatarUrl, useUserEmail } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check } from 'lucide-react';
+import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check, Camera, Eye, EyeOff } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import { usePlusAction } from '@/lib/plus-action-context';
-import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
+import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC, GET_USER_SETTINGS } from '@/lib/graphql/queries';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
 import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
-import { useSignOut } from '@nhost/nextjs';
-import { GET_USER_SETTINGS } from '@/lib/graphql/queries';
-import { UPSERT_USER_SETTINGS } from '@/lib/graphql/mutations';
 import { useNavSettings } from '@/lib/nav-settings-context';
+import nhost, { authUrl } from '@/lib/nhost';
 
-type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'darstellung';
+type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'konto';
 
 export default function EinstellungenPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthenticationStatus();
@@ -33,13 +31,13 @@ export default function EinstellungenPage() {
   const [activeTab, setActiveTab] = useState<Tab>('verbrauchstypen');
   const [showCreate, setShowCreate] = useState(false);
 
-  usePlusAction(activeTab !== 'darstellung' ? () => setShowCreate(true) : null, [activeTab]);
+  usePlusAction(activeTab !== 'konto' ? () => setShowCreate(true) : null, [activeTab]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'verbrauchstypen', label: 'Typen'       },
-    { id: 'anbieter',        label: 'Anbieter'    },
-    { id: 'vertraege',       label: 'Verträge'    },
-    { id: 'darstellung',     label: 'Darstellung' },
+    { id: 'verbrauchstypen', label: 'Typen'    },
+    { id: 'anbieter',        label: 'Anbieter' },
+    { id: 'vertraege',       label: 'Verträge' },
+    { id: 'konto',           label: 'Konto'    },
   ];
 
   return (
@@ -83,7 +81,7 @@ export default function EinstellungenPage() {
         {activeTab === 'vertraege' && (
           <VertraegeTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
         )}
-        {activeTab === 'darstellung' && <DarstellungTab />}
+        {activeTab === 'konto' && <KontoTab />}
       </main>
 
       <Navigation />
@@ -472,56 +470,249 @@ function VerbrauchNeuBerechnenButton({ typId }: { typId: string }) {
 }
 
 // ============================================================
-// Darstellung Tab
+// Konto Tab (Profil + Passwort + Darstellung)
 // ============================================================
-function DarstellungTab() {
+function KontoTab() {
+  return (
+    <div className="space-y-4 pb-4">
+      <ProfilSection />
+      <PasswortSection />
+      <DarstellungSection />
+    </div>
+  );
+}
+
+function ProfilSection() {
+  const currentDisplayName = useUserDisplayName();
+  const currentAvatarUrl   = useUserAvatarUrl();
+  const email              = useUserEmail();
+
+  const [displayName, setDisplayName] = useState(currentDisplayName ?? '');
+  const [avatarUrl,   setAvatarUrl]   = useState(currentAvatarUrl   ?? '');
+  const [uploading,   setUploading]   = useState(false);
+  const [saving,      setSaving]      = useState(false);
+  const [success,     setSuccess]     = useState(false);
+  const [error,       setError]       = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (currentDisplayName) setDisplayName(currentDisplayName);
+    if (currentAvatarUrl)   setAvatarUrl(currentAvatarUrl);
+  }, [currentDisplayName, currentAvatarUrl]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const { fileMetadata, error: uploadError } = await nhost.storage.upload({ file });
+      if (uploadError || !fileMetadata) throw uploadError ?? new Error('Upload fehlgeschlagen');
+      setAvatarUrl(nhost.storage.getPublicUrl({ fileId: fileMetadata.id }));
+    } catch {
+      setError('Bild konnte nicht hochgeladen werden.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSuccess(false);
+    try {
+      const res = await fetch(`${authUrl}/user`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${nhost.auth.getAccessToken()}`,
+        },
+        body: JSON.stringify({ displayName, avatarUrl }),
+      });
+      if (!res.ok) throw new Error();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch {
+      setError('Profil konnte nicht gespeichert werden.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = (displayName || email || '?').charAt(0).toUpperCase();
+
+  return (
+    <div className="ht-card">
+      <p className="ht-section-title mb-4">Profil</p>
+
+      {/* Avatar + E-Mail */}
+      <div className="flex items-center gap-4 mb-5">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="relative group w-16 h-16 rounded-full overflow-hidden border-2 border-bg-border hover:border-accent/50 transition-colors flex-shrink-0"
+        >
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-accent/10 flex items-center justify-center text-accent text-2xl font-bold">
+              {initials}
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            {uploading
+              ? <Loader2 className="w-5 h-5 text-white animate-spin" />
+              : <Camera className="w-5 h-5 text-white" />}
+          </div>
+        </button>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-tx-primary truncate">{email}</p>
+          <p className="text-xs text-tx-muted mt-0.5">Tippe auf das Bild zum Ändern</p>
+        </div>
+      </div>
+      <input
+        type="file"
+        accept="image/*"
+        hidden
+        ref={fileInputRef}
+        onChange={handleAvatarChange}
+      />
+
+      {/* Display name */}
+      <div className="mb-4">
+        <label className="ht-label">Anzeigename</label>
+        <input
+          type="text"
+          className="ht-input"
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+          placeholder="Dein Name"
+        />
+      </div>
+
+      {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+
+      <button
+        onClick={handleSave}
+        disabled={saving || uploading}
+        className="ht-btn-primary w-full flex items-center justify-center gap-2"
+      >
+        {saving
+          ? <><Loader2 className="w-4 h-4 animate-spin" /> Speichern…</>
+          : success
+            ? <><Check className="w-4 h-4" /> Gespeichert</>
+            : 'Profil speichern'}
+      </button>
+    </div>
+  );
+}
+
+function PasswortSection() {
+  const { changePassword, isLoading, isSuccess, isError, error } = useChangePassword();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirm,     setConfirm]     = useState('');
+  const [showPw,      setShowPw]      = useState(false);
+  const [mismatch,    setMismatch]    = useState(false);
+
+  const handleSubmit = async () => {
+    if (newPassword !== confirm) { setMismatch(true); return; }
+    setMismatch(false);
+    const result = await changePassword(newPassword);
+    if (!result.error) { setNewPassword(''); setConfirm(''); }
+  };
+
+  return (
+    <div className="ht-card">
+      <p className="ht-section-title mb-4">Passwort ändern</p>
+
+      <div className="space-y-3 mb-4">
+        <div>
+          <label className="ht-label">Neues Passwort</label>
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              className="ht-input pr-10"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="Mindestens 8 Zeichen"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-tx-muted hover:text-tx-primary"
+            >
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="ht-label">Passwort bestätigen</label>
+          <input
+            type={showPw ? 'text' : 'password'}
+            className="ht-input"
+            value={confirm}
+            onChange={e => { setConfirm(e.target.value); setMismatch(false); }}
+            placeholder="Wiederholen"
+          />
+        </div>
+      </div>
+
+      {mismatch  && <p className="text-xs text-red-400 mb-3">Die Passwörter stimmen nicht überein.</p>}
+      {isError   && <p className="text-xs text-red-400 mb-3">{error?.message ?? 'Fehler beim Ändern des Passworts.'}</p>}
+      {isSuccess && <p className="text-xs text-green-400 mb-3">Passwort erfolgreich geändert.</p>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={isLoading || !newPassword || !confirm}
+        className="ht-btn-primary w-full flex items-center justify-center gap-2"
+      >
+        {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Ändern…</> : 'Passwort ändern'}
+      </button>
+    </div>
+  );
+}
+
+function DarstellungSection() {
   const { navPosition } = useNavSettings();
   const { data, refetch } = useQuery(GET_USER_SETTINGS);
   const [upsertSettings] = useMutation(UPSERT_USER_SETTINGS, { onCompleted: () => refetch() });
 
   const current: string = data?.user_settings?.[0]?.nav_position ?? navPosition;
 
-  const options: { value: string; label: string; description: string }[] = [
-    {
-      value: 'bottom',
-      label: 'Menü unten',
-      description: 'Navigationsleiste am unteren Rand – Standard auf allen Geräten.',
-    },
-    {
-      value: 'left',
-      label: 'Menü links',
-      description: 'Auf dem Desktop wird die Navigation als schmale Seitenleiste links angezeigt. Auf Mobilgeräten bleibt das Menü immer unten.',
-    },
+  const options = [
+    { value: 'bottom', label: 'Menü unten',  description: 'Navigationsleiste am unteren Rand – Standard auf allen Geräten.' },
+    { value: 'left',   label: 'Menü links',  description: 'Auf dem Desktop wird die Navigation als schmale Seitenleiste links angezeigt. Auf Mobilgeräten bleibt das Menü immer unten.' },
   ];
 
   return (
-    <div className="space-y-3">
-      <p className="ht-section-title">Menüposition</p>
-
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => upsertSettings({ variables: { nav_position: opt.value } })}
-          className={`w-full text-left ht-card transition-all duration-200
-            ${current === opt.value
-              ? 'border border-accent/50 bg-accent/5'
-              : 'border border-transparent hover:border-bg-border'
-            }`}
-        >
-          <div className="flex items-start gap-3">
-            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center
-              ${current === opt.value ? 'border-accent' : 'border-bg-border'}`}>
-              {current === opt.value && (
-                <div className="w-2 h-2 rounded-full bg-accent" />
-              )}
+    <div className="ht-card">
+      <p className="ht-section-title mb-3">Darstellung</p>
+      <div className="space-y-2">
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => upsertSettings({ variables: { nav_position: opt.value } })}
+            className={`w-full text-left ht-card transition-all duration-200
+              ${current === opt.value
+                ? 'border border-accent/50 bg-accent/5'
+                : 'border border-transparent hover:border-bg-border'
+              }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center
+                ${current === opt.value ? 'border-accent' : 'border-bg-border'}`}>
+                {current === opt.value && <div className="w-2 h-2 rounded-full bg-accent" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-tx-primary">{opt.label}</p>
+                <p className="text-xs text-tx-muted mt-0.5">{opt.description}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-tx-primary">{opt.label}</p>
-              <p className="text-xs text-tx-muted mt-0.5">{opt.description}</p>
-            </div>
-          </div>
-        </button>
-      ))}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
