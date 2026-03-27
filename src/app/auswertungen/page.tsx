@@ -51,13 +51,29 @@ export default function AuswertungenPage() {
   const [dataMode, setDataMode] = useState<DataMode>('verbrauch');
   const [zeitraumIdx, setZeitraumIdx] = useState(2);
   const [selectedTypen, setSelectedTypen] = useState<string[]>([]);
+  const [selectedStellen, setSelectedStellen] = useState<Record<string, string[]>>({});
 
   const now = new Date();
   const [customVon, setCustomVon] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
   const [customBis, setCustomBis] = useState(format(now, 'yyyy-MM-dd'));
 
-  const { data: typenData, refetch: refetchTypen } = useQuery(GET_VERBRAUCHSTYPEN, { skip: !isAuthenticated });
+  const { data: typenData } = useQuery(GET_VERBRAUCHSTYPEN, { skip: !isAuthenticated });
   const verbrauchstypen: Verbrauchstyp[] = typenData?.verbrauchstyp ?? [];
+
+  // Vorbelegen: Standardstelle je Typ, einmalig beim ersten Laden
+  useEffect(() => {
+    if (!verbrauchstypen.length) return;
+    setSelectedStellen(prev => {
+      const next = { ...prev };
+      for (const typ of verbrauchstypen) {
+        if (next[typ.id] !== undefined) continue;
+        const standard = typ.verbrauchsstellen?.find(s => s.ist_standard)
+          ?? typ.verbrauchsstellen?.[0];
+        next[typ.id] = standard ? [standard.id] : [];
+      }
+      return next;
+    });
+  }, [verbrauchstypen]);
 
   const von = zeitraumIdx === CUSTOM_IDX
     ? customVon
@@ -68,19 +84,49 @@ export default function AuswertungenPage() {
 
   const activeTypen = selectedTypen.length > 0 ? selectedTypen : verbrauchstypen.map((t) => t.id);
 
+  // Alle ausgewählten Stellen für aktive Typen
+  const activeStellen = activeTypen.flatMap(typId => selectedStellen[typId] ?? []);
+
   const { data, loading, refetch } = useQuery(GET_AUSWERTUNG_DATEN, {
     variables: { von, bis, typen: activeTypen },
     skip: !isAuthenticated || activeTypen.length === 0,
     fetchPolicy: 'cache-and-network',
   });
 
-  const chartData = buildChartData(data?.verbrauchswert ?? [], verbrauchstypen);
+  const allWerte: Verbrauchswert[] = data?.verbrauchswert ?? [];
+  // Client-seitige Stellenfilterung
+  const filteredWerte = activeStellen.length > 0
+    ? allWerte.filter(w => activeStellen.includes(w.verbrauchsstelle?.id ?? ''))
+    : allWerte;
+
+  const chartData = buildChartData(filteredWerte, verbrauchstypen);
 
   const toggleTyp = (id: string) => {
     setSelectedTypen((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
+
+  const toggleStelle = (typId: string, stelleId: string) => {
+    setSelectedStellen(prev => {
+      const current = prev[typId] ?? [];
+      const alreadySelected = current.includes(stelleId);
+      // Mindestens eine Stelle muss ausgewählt bleiben
+      if (alreadySelected && current.length === 1) return prev;
+      return {
+        ...prev,
+        [typId]: alreadySelected
+          ? current.filter(id => id !== stelleId)
+          : [...current, stelleId],
+      };
+    });
+  };
+
+  // Typen mit mehreren Stellen (Stellenfilter nur sichtbar wenn relevant)
+  const typenMitMehrerenStellen = activeTypen.filter(typId => {
+    const typ = verbrauchstypen.find(t => t.id === typId);
+    return (typ?.verbrauchsstellen?.length ?? 0) > 1;
+  });
 
   return (
     <div className="min-h-screen bg-bg-base bg-grid pb-24">
@@ -178,6 +224,46 @@ export default function AuswertungenPage() {
                   );
                 })}
               </div>
+
+              {/* Stellenfilter – nur für aktive Typen mit mehr als einer Stelle */}
+              {typenMitMehrerenStellen.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-bg-border/50">
+                  <p className="ht-section-title mb-2">Verbrauchsstellen</p>
+                  <div className="space-y-2">
+                    {activeTypen.map(typId => {
+                      const typ = verbrauchstypen.find(t => t.id === typId);
+                      const stellen = typ?.verbrauchsstellen ?? [];
+                      if (stellen.length <= 1) return null;
+                      return (
+                        <div key={typId} className="flex items-start gap-3">
+                          <span className="text-[11px] text-tx-muted shrink-0 pt-1 w-20 truncate">
+                            {typ?.symbol} {typ?.name}
+                          </span>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {stellen.map(stelle => {
+                              const selected = (selectedStellen[typId] ?? []).includes(stelle.id);
+                              return (
+                                <button
+                                  key={stelle.id}
+                                  onClick={() => toggleStelle(typId, stelle.id)}
+                                  className={`ht-badge cursor-pointer border transition-all duration-150 text-[11px]
+                                    ${selected
+                                      ? 'bg-accent/10 border-accent/40 text-accent'
+                                      : 'bg-bg-base border-bg-border text-tx-muted hover:border-accent/30'
+                                    }`}
+                                >
+                                  {stelle.bezeichnung}
+                                  {stelle.ist_standard && <span className="ml-1 opacity-50">★</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -194,7 +280,7 @@ export default function AuswertungenPage() {
           ) : viewMode === 'chart' ? (
             <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} />
           ) : (
-            <TableView rawData={data?.verbrauchswert ?? []} />
+            <TableView rawData={filteredWerte} />
           )}
         </GraphQLErrorBoundary>
       </main>
@@ -321,7 +407,7 @@ function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[
     const sorted = [...werte].sort((a, b) => a.datum.localeCompare(b.datum));
     for (let i = 0; i < sorted.length; i++) {
       const w = sorted[i];
-      if (!byDate[w.datum]) byDate[w.datum] = { datum: format(new Date(w.datum), 'dd.MM.yy') };
+      if (!byDate[w.datum]) byDate[w.datum] = { datum: format(new Date(w.datum), 'dd.MM.yy', { locale: de }) };
       const typName = w.verbrauchstyp?.name;
       if (!typName) continue;
 

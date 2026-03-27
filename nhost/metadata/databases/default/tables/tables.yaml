@@ -9,6 +9,7 @@
 - "!include auth_users.yaml"
 - "!include public_anbieter.yaml"
 - "!include public_preisperiode.yaml"
+- "!include public_user_settings.yaml"
 - "!include public_verbrauchsstelle.yaml"
 - "!include public_verbrauchstyp.yaml"
 - "!include public_verbrauchswert.yaml"

@@ -164,3 +164,20 @@ export const DELETE_VERBRAUCHSWERT = gql`
     delete_verbrauchswert_by_pk(id: $id) { id }
   }
 `;
+
+// ============================================================
+// USER SETTINGS
+// ============================================================
+export const UPSERT_USER_SETTINGS = gql`
+  mutation UpsertUserSettings($nav_position: String!) {
+    insert_user_settings_one(
+      object: { nav_position: $nav_position }
+      on_conflict: {
+        constraint: user_settings_pkey
+        update_columns: [nav_position]
+      }
+    ) {
+      nav_position
+    }
+  }
+`;
