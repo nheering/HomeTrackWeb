@@ -120,3 +120,24 @@ array_relationships:
         table:
           name: user_providers
           schema: auth
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - display_name
+        - avatar_url
+        - email
+      filter:
+        id:
+          _eq: X-Hasura-User-Id
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - display_name
+        - avatar_url
+      filter:
+        id:
+          _eq: X-Hasura-User-Id
+      check: {}

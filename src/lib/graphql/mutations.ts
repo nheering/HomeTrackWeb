@@ -181,3 +181,14 @@ export const UPSERT_USER_SETTINGS = gql`
     }
   }
 `;
+
+// ============================================================
+// USER PROFIL
+// ============================================================
+export const UPDATE_USER_PROFILE = gql`
+  mutation UpdateUserProfile($id: uuid!, $displayName: String!, $avatarUrl: String) {
+    updateUser(pk_columns: { id: $id }, _set: { displayName: $displayName, avatarUrl: $avatarUrl }) {
+      id displayName avatarUrl
+    }
+  }
+`;

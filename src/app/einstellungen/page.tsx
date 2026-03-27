@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
-import { useAuthenticationStatus, useSignOut, useChangePassword, useUserDisplayName, useUserAvatarUrl, useUserEmail } from '@nhost/nextjs';
+import { useAuthenticationStatus, useSignOut, useChangePassword, useUserDisplayName, useUserAvatarUrl, useUserEmail, useUserId } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check, Camera, Eye, EyeOff } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import { usePlusAction } from '@/lib/plus-action-context';
 import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC, GET_USER_SETTINGS } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS } from '@/lib/graphql/mutations';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS, UPDATE_USER_PROFILE } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
 import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
 import { useNavSettings } from '@/lib/nav-settings-context';
-import nhost, { authUrl } from '@/lib/nhost';
+import nhost from '@/lib/nhost';
 
 type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'konto';
 
@@ -483,6 +483,7 @@ function KontoTab() {
 }
 
 function ProfilSection() {
+  const userId             = useUserId();
   const currentDisplayName = useUserDisplayName();
   const currentAvatarUrl   = useUserAvatarUrl();
   const email              = useUserEmail();
@@ -490,10 +491,17 @@ function ProfilSection() {
   const [displayName, setDisplayName] = useState(currentDisplayName ?? '');
   const [avatarUrl,   setAvatarUrl]   = useState(currentAvatarUrl   ?? '');
   const [uploading,   setUploading]   = useState(false);
-  const [saving,      setSaving]      = useState(false);
   const [success,     setSuccess]     = useState(false);
   const [error,       setError]       = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [updateProfile, { loading: saving }] = useMutation(UPDATE_USER_PROFILE, {
+    onCompleted: () => {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    },
+    onError: (err) => setError(`Profil konnte nicht gespeichert werden. (${err.message})`),
+  });
 
   useEffect(() => {
     if (currentDisplayName) setDisplayName(currentDisplayName);
@@ -517,27 +525,16 @@ function ProfilSection() {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleSave = () => {
     setError('');
     setSuccess(false);
-    try {
-      const res = await fetch(`${authUrl}/user`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${nhost.auth.getAccessToken()}`,
-        },
-        body: JSON.stringify({ displayName, avatarUrl }),
-      });
-      if (!res.ok) throw new Error();
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch {
-      setError('Profil konnte nicht gespeichert werden.');
-    } finally {
-      setSaving(false);
-    }
+    updateProfile({
+      variables: {
+        id: userId,
+        displayName,
+        avatarUrl: avatarUrl || null,
+      },
+    });
   };
 
   const initials = (displayName || email || '?').charAt(0).toUpperCase();
