@@ -48,19 +48,71 @@ export default function DateInput({ value, onChange, required, min, max, classNa
   }, []);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    setText(raw);
-    if (raw === '') {
-      onChange('');
-      return;
+    // Nur Ziffern behalten, max. 8 Stellen (TTMMJJJJ)
+    const digits = e.target.value.replace(/\D/g, '').substring(0, 8);
+
+    // Punkte automatisch einfügen: TT.MM.JJJJ
+    let formatted = digits;
+    if (digits.length > 4) {
+      formatted = `${digits.substring(0, 2)}.${digits.substring(2, 4)}.${digits.substring(4)}`;
+    } else if (digits.length > 2) {
+      formatted = `${digits.substring(0, 2)}.${digits.substring(2)}`;
     }
-    if (raw.length === 10) {
+
+    setText(formatted);
+
+    if (digits.length === 0) {
+      onChange('');
+    } else if (digits.length === 8) {
       try {
-        const d = parse(raw, 'dd.MM.yyyy', new Date());
+        const d = parse(formatted, 'dd.MM.yyyy', new Date());
         if (isValid(d)) onChange(format(d, 'yyyy-MM-dd'));
       } catch {
-        // invalid input – keep waiting
+        // ungültige Eingabe – warten
       }
+    }
+  };
+
+  const handleBlur = () => {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length === 0 || digits.length >= 5) return; // leer oder Jahr wird noch getippt
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let completed: Date | null = null;
+
+    if (digits.length <= 2) {
+      // Nur Tag: nächstes Auftreten dieses Tages ab heute suchen
+      const day = parseInt(digits, 10);
+      if (day < 1 || day > 31) return;
+
+      let m = today.getMonth();
+      let y = today.getFullYear();
+      for (let attempt = 0; attempt < 13; attempt++) {
+        const candidate = new Date(y, m, day);
+        if (candidate.getDate() === day && candidate >= today) {
+          completed = candidate;
+          break;
+        }
+        m++;
+        if (m > 11) { m = 0; y++; }
+      }
+    } else {
+      // 3–4 Ziffern: erste zwei = Tag, nächste = Monat, Jahr = aktuell
+      const day   = parseInt(digits.substring(0, 2), 10);
+      const month = parseInt(digits.substring(2, 4), 10) - 1; // 0-basiert
+      if (month < 0 || month > 11 || day < 1 || day > 31) return;
+
+      const candidate = new Date(today.getFullYear(), month, day);
+      if (candidate.getDate() === day && candidate.getMonth() === month) {
+        completed = candidate;
+      }
+    }
+
+    if (completed) {
+      const iso = format(completed, 'yyyy-MM-dd');
+      setText(format(completed, 'dd.MM.yyyy'));
+      onChange(iso);
     }
   };
 
@@ -84,6 +136,7 @@ export default function DateInput({ value, onChange, required, min, max, classNa
           type="text"
           value={text}
           onChange={handleTextChange}
+          onBlur={handleBlur}
           required={required}
           placeholder="TT.MM.JJJJ"
           className={`${className ?? 'ht-input'} pr-8`}
