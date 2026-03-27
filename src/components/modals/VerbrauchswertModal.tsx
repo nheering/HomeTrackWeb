@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNhostClient } from '@nhost/nextjs';
-import { Loader2, Camera, X } from 'lucide-react';
+import { Loader2, Camera, X, Plus } from 'lucide-react';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
+import VerbrauchsstellenModal from './VerbrauchsstellenModal';
 import { INSERT_VERBRAUCHSWERT, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
 import { GET_DASHBOARD_DATA, GET_LETZTER_VERBRAUCHSWERT, GET_VORHERIGER_VERBRAUCHSWERT, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
 import { Verbrauchswert } from '@/types';
@@ -30,22 +31,30 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
     notizen:             editData?.notizen             || '',
   });
 
-  const [imageFile, setImageFile]     = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(
-    editData?.bild_url ?? null
-  );
-  const [uploading, setUploading] = useState(false);
+  const [imageFile, setImageFile]       = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(editData?.bild_url ?? null);
+  const [uploading, setUploading]       = useState(false);
+  const [stelleError, setStelleError]   = useState(false);
+  const [showCreateStelle, setShowCreateStelle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedTyp = typen.find((t: any) => t.id === form.verbrauchstyp_id);
   const stellen = selectedTyp?.verbrauchsstellen ?? [];
 
+  // Verbrauchsstelle auto-selektieren, sobald nach Neuanlage Stellen verfügbar werden
+  useEffect(() => {
+    if (!form.verbrauchsstelle_id && stellen.length > 0) {
+      const standard = stellen.find((s: any) => s.ist_standard) ?? stellen[0];
+      setForm(f => ({ ...f, verbrauchsstelle_id: standard.id }));
+    }
+  }, [stellen]);
+
   const canQuery = !!form.verbrauchstyp_id && !!form.verbrauchsstelle_id;
 
-  // Insert mode: fetch the most recent entry for this type+stelle
+  // Insert mode: fetch the most recent entry for this type+stelle up to (and including) the selected date
   const { data: letzterData } = useQuery(GET_LETZTER_VERBRAUCHSWERT, {
-    variables: { typ_id: form.verbrauchstyp_id, stelle_id: form.verbrauchsstelle_id },
-    skip: isEdit || !canQuery,
+    variables: { typ_id: form.verbrauchstyp_id, stelle_id: form.verbrauchsstelle_id, datum: form.datum },
+    skip: isEdit || !canQuery || !form.datum,
     fetchPolicy: 'network-only',
   });
 
@@ -93,6 +102,11 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.verbrauchsstelle_id) {
+      setStelleError(true);
+      return;
+    }
+    setStelleError(false);
     let bild_url: string | undefined = editData?.bild_url;
 
     if (imageFile) {
@@ -148,6 +162,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
   const loading = insertLoading || updateLoading || uploading;
 
   return (
+    <>
     <Modal title={isEdit ? 'Eintrag bearbeiten' : 'Zählerstand erfassen'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Verbrauchstyp */}
@@ -170,22 +185,36 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
           </select>
         </div>
 
-        {/* Verbrauchsstelle */}
-        {stellen.length > 0 && (
+        {/* Verbrauchsstelle – immer anzeigen wenn ein Typ gewählt ist */}
+        {form.verbrauchstyp_id && (
           <div>
-            <label className="ht-label">Verbrauchsstelle</label>
-            <select
-              className="ht-input"
-              value={form.verbrauchsstelle_id}
-              onChange={e => setForm(f => ({ ...f, verbrauchsstelle_id: e.target.value }))}
-            >
-              <option value="">– Stelle wählen –</option>
-              {stellen.map((s: any) => (
-                <option key={s.id} value={s.id}>
-                  {s.bezeichnung}{s.ist_standard ? ' ★' : ''}
-                </option>
-              ))}
-            </select>
+            <label className="ht-label">Verbrauchsstelle *</label>
+            <div className="flex gap-2">
+              <select
+                className={`ht-input flex-1 ${stelleError ? 'border-red-500' : ''}`}
+                value={form.verbrauchsstelle_id}
+                onChange={e => { setForm(f => ({ ...f, verbrauchsstelle_id: e.target.value })); setStelleError(false); }}
+                disabled={stellen.length === 0}
+              >
+                <option value="">{stellen.length === 0 ? 'Noch keine Stelle vorhanden' : '– Stelle wählen –'}</option>
+                {stellen.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.bezeichnung}{s.ist_standard ? ' ★' : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowCreateStelle(true)}
+                className="ht-btn-ghost px-2.5 border border-bg-border rounded-lg flex-shrink-0"
+                title="Neue Verbrauchsstelle anlegen"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            {stelleError && (
+              <p className="text-xs text-red-400 mt-1">Bitte eine Verbrauchsstelle auswählen.</p>
+            )}
           </div>
         )}
 
@@ -267,5 +296,13 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
         </div>
       </form>
     </Modal>
+
+    {showCreateStelle && (
+      <VerbrauchsstellenModal
+        verbrauchstypId={form.verbrauchstyp_id}
+        onClose={() => setShowCreateStelle(false)}
+      />
+    )}
+  </>
   );
 }

@@ -21,11 +21,12 @@ export const GET_VERBRAUCHSWERTE_FOR_RECALC = gql`
 // LETZTER VERBRAUCHSWERT (für Verbrauchsberechnung beim Erfassen)
 // ============================================================
 export const GET_LETZTER_VERBRAUCHSWERT = gql`
-  query GetLetzterVerbrauchswert($typ_id: uuid!, $stelle_id: uuid!) {
+  query GetLetzterVerbrauchswert($typ_id: uuid!, $stelle_id: uuid!, $datum: date!) {
     verbrauchswert(
       where: {
         verbrauchstyp_id: { _eq: $typ_id }
         verbrauchsstelle_id: { _eq: $stelle_id }
+        datum: { _lte: $datum }
       }
       order_by: { datum: desc }
       limit: 1
