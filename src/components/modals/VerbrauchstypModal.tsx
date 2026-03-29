@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Pipette } from 'lucide-react';
 import Modal from './Modal';
 import { INSERT_VERBRAUCHSTYP, UPDATE_VERBRAUCHSTYP } from '@/lib/graphql/mutations';
 import { GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
@@ -47,6 +47,8 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
   });
 
   const loading = insertLoading || updateLoading;
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const isCustomColor = !FARBEN.includes(form.farbe);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +133,7 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
         {/* Farb-Picker */}
         <div>
           <label className="ht-label">Farbe</label>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap justify-center p-1">
             {FARBEN.map(c => (
               <button
                 key={c}
@@ -141,6 +143,23 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
                 style={{ backgroundColor: c }}
               />
             ))}
+            {/* Custom color button */}
+            <button
+              type="button"
+              onClick={() => colorInputRef.current?.click()}
+              className={`w-7 h-7 rounded-full transition-all flex items-center justify-center overflow-hidden ${isCustomColor ? 'ring-2 ring-offset-2 ring-offset-bg-card ring-white scale-110' : 'hover:scale-105 border border-bg-border'}`}
+              style={isCustomColor ? { backgroundColor: form.farbe } : undefined}
+              title="Eigene Farbe wählen"
+            >
+              {!isCustomColor && <Pipette className="w-3.5 h-3.5 text-tx-muted" />}
+            </button>
+            <input
+              ref={colorInputRef}
+              type="color"
+              className="sr-only"
+              value={form.farbe}
+              onChange={e => setForm(f => ({ ...f, farbe: e.target.value }))}
+            />
           </div>
         </div>
 

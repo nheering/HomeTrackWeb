@@ -17,8 +17,8 @@ export default function VertragModal({ editData, onClose }: Props) {
   const isEdit = !!editData;
   const { data: anbieterData } = useQuery(GET_ANBIETER);
   const { data: typenData    } = useQuery(GET_VERBRAUCHSTYPEN);
-  const anbieter = anbieterData?.anbieter    ?? [];
-  const typen    = typenData?.verbrauchstyp  ?? [];
+  const anbieter = anbieterData?.anbieter   ?? [];
+  const typen    = typenData?.verbrauchstyp ?? [];
 
   const [form, setForm] = useState({
     bezeichnung:      editData?.bezeichnung      || '',
@@ -31,6 +31,10 @@ export default function VertragModal({ editData, onClose }: Props) {
     zahlungsintervall:editData?.zahlungsintervall|| 'monatlich',
     notizen:          editData?.notizen          || '',
   });
+
+  const gefilterteAnbieter = form.verbrauchstyp_id
+    ? anbieter.filter((a: any) => !a.verbrauchstyp_id || a.verbrauchstyp_id === form.verbrauchstyp_id)
+    : anbieter;
 
   const refetchQueries = [{ query: GET_VERTRAEGE }];
   const [insertVertrag, { loading: il }] = useMutation(INSERT_VERTRAG, { refetchQueries, onCompleted: onClose });
@@ -60,17 +64,24 @@ export default function VertragModal({ editData, onClose }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="ht-label">Anbieter</label>
-            <select className="ht-input" value={form.anbieter_id} onChange={e => setForm(f => ({ ...f, anbieter_id: e.target.value }))}>
-              <option value="">– kein Anbieter –</option>
-              {anbieter.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <label className="ht-label">Verbrauchstyp</label>
+            <select className="ht-input" value={form.verbrauchstyp_id} onChange={e => {
+              const typId = e.target.value;
+              setForm(f => {
+                const anbieterPasst = !typId || !f.anbieter_id ||
+                  anbieter.find((a: any) => a.id === f.anbieter_id && (!a.verbrauchstyp_id || a.verbrauchstyp_id === typId));
+                return { ...f, verbrauchstyp_id: typId, anbieter_id: anbieterPasst ? f.anbieter_id : '' };
+              });
+            }}>
+              <option value="">– kein Typ –</option>
+              {typen.map((t: any) => <option key={t.id} value={t.id}>{t.symbol} {t.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="ht-label">Verbrauchstyp</label>
-            <select className="ht-input" value={form.verbrauchstyp_id} onChange={e => setForm(f => ({ ...f, verbrauchstyp_id: e.target.value }))}>
-              <option value="">– kein Typ –</option>
-              {typen.map((t: any) => <option key={t.id} value={t.id}>{t.symbol} {t.name}</option>)}
+            <label className="ht-label">Anbieter</label>
+            <select className="ht-input" value={form.anbieter_id} onChange={e => setForm(f => ({ ...f, anbieter_id: e.target.value }))}>
+              <option value="">– kein Anbieter –</option>
+              {gefilterteAnbieter.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
         </div>

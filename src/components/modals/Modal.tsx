@@ -28,17 +28,19 @@ export default function Modal({ title, onClose, children, size = 'md' }: ModalPr
         onClick={onClose}
       />
       {/* Modal */}
-      <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4`}>
+      <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pt-4 pb-8 sm:p-4`}>
         <div className={`w-full ${widthClass} animate-slide-up`}>
-          <div className="ht-card max-h-[85vh] overflow-y-auto">
+          <div className="ht-card max-h-[85vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-5 flex-shrink-0">
               <h2 className="font-semibold text-tx-primary">{title}</h2>
               <button onClick={onClose} className="ht-btn-ghost p-1.5">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            {children}
+            <div className="overflow-y-auto pb-1">
+              {children}
+            </div>
           </div>
         </div>
       </div>
