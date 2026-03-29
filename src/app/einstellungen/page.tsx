@@ -16,6 +16,7 @@ import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
 import { useNavSettings } from '@/lib/nav-settings-context';
 import nhost from '@/lib/nhost';
+import { uploadFehlerText } from '@/lib/upload';
 
 type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'konto';
 
@@ -517,8 +518,8 @@ function ProfilSection() {
       const { fileMetadata, error: uploadError } = await nhost.storage.upload({ file });
       if (uploadError || !fileMetadata) throw uploadError ?? new Error('Upload fehlgeschlagen');
       setAvatarUrl(nhost.storage.getPublicUrl({ fileId: fileMetadata.id }));
-    } catch {
-      setError('Bild konnte nicht hochgeladen werden.');
+    } catch (err) {
+      setError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(err)}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

@@ -20,7 +20,7 @@ import {
 import Navigation from '@/components/layout/Navigation';
 import { GraphQLErrorBoundary } from '@/components/error';
 import DateInput from '@/components/ui/DateInput';
-import { GET_AUSWERTUNG_DATEN, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
+import { GET_AUSWERTUNG_DATEN, GET_VERBRAUCHSTYPEN, GET_PREISPERIODEN_FOR_TYPEN } from '@/lib/graphql/queries';
 import { Verbrauchstyp, Verbrauchswert } from '@/types';
 
 type ViewMode = 'chart' | 'table';
@@ -93,13 +93,19 @@ export default function AuswertungenPage() {
     fetchPolicy: 'cache-and-network',
   });
 
+  const { data: preisData } = useQuery(GET_PREISPERIODEN_FOR_TYPEN, {
+    variables: { typen: activeTypen },
+    skip: !isAuthenticated || activeTypen.length === 0 || dataMode !== 'kosten',
+  });
+  const vertraege = preisData?.vertrag ?? [];
+
   const allWerte: Verbrauchswert[] = data?.verbrauchswert ?? [];
   // Client-seitige Stellenfilterung
   const filteredWerte = activeStellen.length > 0
     ? allWerte.filter(w => activeStellen.includes(w.verbrauchsstelle?.id ?? ''))
     : allWerte;
 
-  const chartData = buildChartData(filteredWerte, verbrauchstypen);
+  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege);
 
   const toggleTyp = (id: string) => {
     setSelectedTypen((prev) =>
@@ -278,9 +284,9 @@ export default function AuswertungenPage() {
               <p className="text-tx-muted text-sm">Keine Daten für den gewählten Zeitraum.</p>
             </div>
           ) : viewMode === 'chart' ? (
-            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} />
+            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} />
           ) : (
-            <TableView rawData={filteredWerte} />
+            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} />
           )}
         </GraphQLErrorBoundary>
       </main>
@@ -294,14 +300,15 @@ interface ChartViewProps {
   data: ChartDataPoint[];
   verbrauchstypen: Verbrauchstyp[];
   activeTypen: string[];
+  dataMode: DataMode;
 }
 
-function ChartView({ data, verbrauchstypen, activeTypen }: ChartViewProps) {
+function ChartView({ data, verbrauchstypen, activeTypen, dataMode }: ChartViewProps) {
   const activeTypes = verbrauchstypen.filter((t) => activeTypen.includes(t.id));
 
   return (
     <div className="ht-card animate-fade-in">
-      <p className="ht-section-title">Verbrauchsverlauf</p>
+      <p className="ht-section-title">{dataMode === 'kosten' ? 'Kostenentwicklung (€)' : 'Verbrauchsverlauf'}</p>
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <defs>
@@ -322,6 +329,10 @@ function ChartView({ data, verbrauchstypen, activeTypen }: ChartViewProps) {
               borderRadius: '8px',
               color: '#e8edf5',
               fontSize: '12px',
+            }}
+            formatter={(value: number, name: string) => {
+              const formatted = Number(value).toLocaleString('de-DE', { maximumFractionDigits: 2 });
+              return dataMode === 'kosten' ? [`${formatted} €`, name] : [formatted, name];
             }}
           />
           <Legend wrapperStyle={{ fontSize: '12px', color: '#8b9ab5', paddingTop: '12px' }} />
@@ -345,42 +356,66 @@ function ChartView({ data, verbrauchstypen, activeTypen }: ChartViewProps) {
 
 interface TableViewProps {
   rawData: Verbrauchswert[];
+  dataMode: DataMode;
+  vertraege: any[];
 }
 
-function TableView({ rawData }: TableViewProps) {
+function TableView({ rawData, dataMode, vertraege }: TableViewProps) {
+  const headers = dataMode === 'kosten'
+    ? ['Datum', 'Typ', 'Stelle', 'Verbrauch', 'Kosten (€)']
+    : ['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch'];
+
   return (
     <div className="ht-card animate-fade-in overflow-x-auto">
       <p className="ht-section-title">Rohdaten</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-bg-border">
-            {['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch'].map((h) => (
+            {headers.map((h) => (
               <th key={h} className="text-left text-xs text-tx-muted font-medium pb-2 pr-4">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rawData.map((row) => (
-            <tr key={row.id} className="border-b border-bg-border/50 hover:bg-bg-hover transition-colors">
-              <td className="py-2 pr-4 font-mono text-xs text-tx-secondary">
-                {format(new Date(row.datum), 'dd.MM.yyyy')}
-              </td>
-              <td className="py-2 pr-4">
-                <span className="flex items-center gap-1.5">
-                  <span>{row.verbrauchstyp?.symbol}</span>
-                  <span className="text-tx-primary">{row.verbrauchstyp?.name}</span>
-                </span>
-              </td>
-              <td className="py-2 pr-4 text-tx-secondary text-xs">{row.verbrauchsstelle?.bezeichnung ?? '–'}</td>
-              <td className="py-2 pr-4 font-mono text-tx-primary tabular-nums">
-                {Number(row.zaehlerstand).toLocaleString('de-DE', { maximumFractionDigits: 2 })}
-                <span className="text-tx-muted text-xs ml-1">{row.verbrauchstyp?.einheit}</span>
-              </td>
-              <td className="py-2 font-mono tabular-nums" style={{ color: row.verbrauchstyp?.farbe || '#f97316' }}>
-                {row.verbrauch ? `${Number(row.verbrauch).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${row.verbrauchstyp?.einheit}` : '–'}
-              </td>
-            </tr>
-          ))}
+          {rawData.map((row) => {
+            const kosten = dataMode === 'kosten' && row.verbrauch != null
+              ? berechneKosten(row.datum, row.verbrauchstyp?.id ?? '', row.verbrauch, vertraege)
+              : null;
+            return (
+              <tr key={row.id} className="border-b border-bg-border/50 hover:bg-bg-hover transition-colors">
+                <td className="py-2 pr-4 font-mono text-xs text-tx-secondary">
+                  {format(new Date(row.datum), 'dd.MM.yyyy')}
+                </td>
+                <td className="py-2 pr-4">
+                  <span className="flex items-center gap-1.5">
+                    <span>{row.verbrauchstyp?.symbol}</span>
+                    <span className="text-tx-primary">{row.verbrauchstyp?.name}</span>
+                  </span>
+                </td>
+                <td className="py-2 pr-4 text-tx-secondary text-xs">{row.verbrauchsstelle?.bezeichnung ?? '–'}</td>
+                {dataMode === 'kosten' ? (
+                  <>
+                    <td className="py-2 pr-4 font-mono text-tx-secondary tabular-nums">
+                      {row.verbrauch != null ? `${Number(row.verbrauch).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${row.verbrauchstyp?.einheit}` : '–'}
+                    </td>
+                    <td className="py-2 font-mono tabular-nums" style={{ color: row.verbrauchstyp?.farbe || '#f97316' }}>
+                      {kosten != null ? `${kosten.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '–'}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-2 pr-4 font-mono text-tx-primary tabular-nums">
+                      {Number(row.zaehlerstand).toLocaleString('de-DE', { maximumFractionDigits: 2 })}
+                      <span className="text-tx-muted text-xs ml-1">{row.verbrauchstyp?.einheit}</span>
+                    </td>
+                    <td className="py-2 font-mono tabular-nums" style={{ color: row.verbrauchstyp?.farbe || '#f97316' }}>
+                      {row.verbrauch ? `${Number(row.verbrauch).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${row.verbrauchstyp?.einheit}` : '–'}
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {rawData.length === 0 && (
@@ -390,10 +425,26 @@ function TableView({ rawData }: TableViewProps) {
   );
 }
 
-function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[]): ChartDataPoint[] {
+function berechneKosten(datum: string, typId: string, verbrauch: number, vertraege: any[]): number | null {
+  const vertrag = vertraege.find((v: any) =>
+    v.verbrauchstyp_id === typId &&
+    v.beginn_datum <= datum &&
+    (!v.ende_datum || v.ende_datum >= datum)
+  );
+  if (!vertrag) return null;
+
+  const periode = [...vertrag.preisperioden]
+    .filter((p: any) => p.gueltig_ab <= datum && (!p.gueltig_bis || p.gueltig_bis >= datum))
+    .pop();
+  if (!periode) return null;
+
+  const steuer = periode.steuer ? (1 + periode.steuer / 100) : 1;
+  return verbrauch * periode.einheitspreis * steuer;
+}
+
+function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[]): ChartDataPoint[] {
   if (!verbrauchswerte.length) return [];
 
-  // Gruppieren nach Typ + Stelle, dann Differenz zwischen aufeinanderfolgenden Zählerständen berechnen
   const groups: Record<string, Verbrauchswert[]> = {};
   for (const w of verbrauchswerte) {
     const key = `${w.verbrauchstyp?.id}-${w.verbrauchsstelle?.id ?? 'none'}`;
@@ -417,7 +468,15 @@ function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[
           ? Math.max(0, w.zaehlerstand - sorted[i - 1].zaehlerstand)
           : 0;
 
-      byDate[w.datum][typName] = ((byDate[w.datum][typName] as number) ?? 0) + verbrauch;
+      let value: number;
+      if (dataMode === 'kosten') {
+        const kosten = berechneKosten(w.datum, w.verbrauchstyp?.id ?? '', verbrauch, vertraege);
+        value = kosten ?? 0;
+      } else {
+        value = verbrauch;
+      }
+
+      byDate[w.datum][typName] = ((byDate[w.datum][typName] as number) ?? 0) + value;
     }
   }
 

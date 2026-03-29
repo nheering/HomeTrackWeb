@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNhostClient } from '@nhost/nextjs';
-import { Loader2, Camera, X, Plus } from 'lucide-react';
+import { Loader2, Camera, X, Plus, AlertCircle } from 'lucide-react';
+import { uploadFehlerText } from '@/lib/upload';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
 import VerbrauchsstellenModal from './VerbrauchsstellenModal';
@@ -34,6 +35,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
   const [imageFile, setImageFile]       = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(editData?.bild_url ?? null);
   const [uploading, setUploading]       = useState(false);
+  const [uploadError, setUploadError]   = useState<string | null>(null);
   const [stelleError, setStelleError]   = useState(false);
   const [showCreateStelle, setShowCreateStelle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,16 +113,22 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
 
     if (imageFile) {
       setUploading(true);
+      setUploadError(null);
       try {
         const { fileMetadata, error } = await nhost.storage.upload({
           file: imageFile,
           bucketId: 'default',
         });
-        if (!error && fileMetadata) {
-          bild_url = nhost.storage.getPublicUrl({ fileId: fileMetadata.id });
+        if (error || !fileMetadata) {
+          setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(error)}`);
+          setUploading(false);
+          return;
         }
+        bild_url = nhost.storage.getPublicUrl({ fileId: fileMetadata.id });
       } catch (err) {
-        console.error('Upload error:', err);
+        setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(err)}`);
+        setUploading(false);
+        return;
       }
       setUploading(false);
     }
@@ -279,6 +287,12 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
             </button>
           )}
           <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImage} />
+          {uploadError && (
+            <div className="mt-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-300">{uploadError}</p>
+            </div>
+          )}
         </div>
 
         <div>

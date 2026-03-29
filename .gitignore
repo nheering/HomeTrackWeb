@@ -13,3 +13,6 @@ _ignore/
 CLAUDE.md
 tsconfig.tsbuildinfo
 tsconfig.tsbuildinfo
+*.tsbuildinfo
+/.claude
+.claude/settings.local.json

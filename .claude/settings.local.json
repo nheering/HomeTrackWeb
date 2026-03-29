@@ -5,7 +5,9 @@
       "Bash(nhost dev:*)",
       "Bash(curl -s -X POST https://local.hasura.nhost.run/v1/graphql -H \"X-Hasura-Admin-Secret: nhost-admin-secret\" -H \"Content-Type: application/json\" -d '{\"\"query\"\":\"\"{ verbrauchstyp { id name } }\"\"}')",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)"
     ]
   }
 }

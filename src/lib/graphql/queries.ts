@@ -187,6 +187,28 @@ export const GET_AUSWERTUNG_DATEN = gql`
 `;
 
 // ============================================================
+// PREISPERIODEN FÜR KOSTEN-AUSWERTUNG
+// ============================================================
+export const GET_PREISPERIODEN_FOR_TYPEN = gql`
+  query GetPreisperiodenForTypen($typen: [uuid!]) {
+    vertrag(
+      where: { verbrauchstyp_id: { _in: $typen } }
+      order_by: { beginn_datum: asc }
+    ) {
+      verbrauchstyp_id
+      beginn_datum
+      ende_datum
+      preisperioden(order_by: { gueltig_ab: asc }) {
+        gueltig_ab
+        gueltig_bis
+        einheitspreis
+        steuer
+      }
+    }
+  }
+`;
+
+// ============================================================
 // USER SETTINGS
 // ============================================================
 export const GET_USER_SETTINGS = gql`
