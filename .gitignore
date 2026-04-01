@@ -16,3 +16,4 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 /.claude
 .claude/settings.local.json
+*.tsbuildinfo
