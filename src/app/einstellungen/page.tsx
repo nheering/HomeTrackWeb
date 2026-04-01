@@ -8,7 +8,7 @@ import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, Ref
 import Navigation from '@/components/layout/Navigation';
 import { usePlusAction } from '@/lib/plus-action-context';
 import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC, GET_USER_SETTINGS } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS, UPDATE_USER_PROFILE } from '@/lib/graphql/mutations';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, DELETE_PREISPERIODE, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS, UPDATE_USER_PROFILE } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
 import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
@@ -288,7 +288,9 @@ function AnbieterTab({ showCreate, onCreateClose }: { showCreate: boolean; onCre
 function VertraegeTab({ showCreate, onCreateClose }: { showCreate: boolean; onCreateClose: () => void }) {
   const { data, loading, refetch } = useQuery(GET_VERTRAEGE);
   const [deleteVertrag] = useMutation(DELETE_VERTRAG, { onCompleted: () => refetch() });
+  const [deletePreis] = useMutation(DELETE_PREISPERIODE, { onCompleted: () => refetch() });
   const [editItem, setEditItem] = useState<any | null>(null);
+  const [editPreis, setEditPreis] = useState<any | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showPreis, setShowPreis] = useState<string | null>(null);
 
@@ -351,14 +353,22 @@ function VertraegeTab({ showCreate, onCreateClose }: { showCreate: boolean; onCr
                 </div>
                 {v.preisperioden?.map((p: any) => (
                   <div key={p.id} className="bg-bg-base/60 rounded-lg px-3 py-2 mb-1.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-tx-muted">ab {p.gueltig_ab}</span>
-                      {p.gueltig_bis && <span className="text-tx-muted">bis {p.gueltig_bis}</span>}
-                    </div>
-                    <div className="flex gap-4 mt-1">
-                      <span className="text-tx-secondary">GP: <span className="font-mono text-tx-primary">{Number(p.grundpreis).toFixed(2)} €/{p.grundpreis_intervall || 'Mon.'}</span></span>
-                      <span className="text-tx-secondary">AP: <span className="font-mono text-tx-primary">{Number(p.einheitspreis).toFixed(4)} €</span></span>
-                      {p.steuer && <span className="text-tx-muted">MwSt: {p.steuer}%</span>}
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <span className="text-tx-muted">ab {p.gueltig_ab}</span>
+                          {p.gueltig_bis && <span className="text-tx-muted">bis {p.gueltig_bis}</span>}
+                        </div>
+                        <div className="flex gap-4 mt-1">
+                          <span className="text-tx-secondary">GP: <span className="font-mono text-tx-primary">{Number(p.grundpreis).toFixed(2)} €/{p.grundpreis_intervall || 'Mon.'}</span></span>
+                          <span className="text-tx-secondary">AP: <span className="font-mono text-tx-primary">{Number(p.einheitspreis).toFixed(4)} €</span></span>
+                          {p.steuer && <span className="text-tx-muted">MwSt: {p.steuer}%</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5 ml-2 flex-shrink-0">
+                        <button onClick={() => setEditPreis({ ...p, vertrag_id: v.id })} className="ht-btn-ghost p-1"><Edit3 className="w-3 h-3" /></button>
+                        <button onClick={() => deletePreis({ variables: { id: p.id } })} className="ht-btn-ghost p-1 text-red-400/70 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -377,10 +387,11 @@ function VertraegeTab({ showCreate, onCreateClose }: { showCreate: boolean; onCr
           onClose={() => { onCreateClose(); setEditItem(null); refetch(); }}
         />
       )}
-      {showPreis && (
+      {(showPreis || editPreis) && (
         <PreisperiodeModal
-          vertragId={showPreis}
-          onClose={() => { setShowPreis(null); refetch(); }}
+          vertragId={showPreis || editPreis?.vertrag_id}
+          editData={editPreis}
+          onClose={() => { setShowPreis(null); setEditPreis(null); refetch(); }}
         />
       )}
     </div>
