@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNhostClient } from '@nhost/nextjs';
+import { storageUrl } from '@/lib/nhost';
 
 interface Props {
   src: string;
@@ -12,8 +13,7 @@ interface Props {
 /**
  * Zeigt ein Bild aus dem nhost Storage an.
  * Unterstützt sowohl Presigned-URLs (für private Buckets) als auch Data-URLs.
- * Erwartet entweder eine vollständige Storage-URL ({storageUrl}/files/{fileId})
- * oder eine Data-URL (data:...) für lokale Vorschauen.
+ * Erwartet entweder eine Storage-URL mit /files/{fileId} oder eine Data-URL (data:...).
  */
 export default function StorageImage({ src, alt = '', className }: Props) {
   const nhost = useNhostClient();
@@ -35,25 +35,29 @@ export default function StorageImage({ src, alt = '', className }: Props) {
       return;
     }
     const fileId = match[1];
+    const token = nhost.auth.getAccessToken();
 
-    nhost.storage.getPresignedUrl({ fileId }).then(({ presignedUrl, error }) => {
-      if (presignedUrl?.url) {
-        setUrl(presignedUrl.url);
-      } else {
-        // Fallback: Wenn Presigned URL fehlschlägt, versuchen wir es mit der Public URL + Token (Nhost-spezifisch)
-        const token = nhost.auth.getAccessToken();
-        const baseUrl = nhost.storage.getPublicUrl({ fileId });
-        const fallbackUrl = token ? `${baseUrl}?token=${token}` : baseUrl;
-        
-        console.warn('StorageImage: Presigned URL fehlgeschlagen, verwende Fallback:', fallbackUrl);
-        setUrl(fallbackUrl);
-      }
-    }).catch(err => {
-      console.error('StorageImage: Fehler beim Abrufen der Presigned URL:', err);
-      const token = nhost.auth.getAccessToken();
-      const baseUrl = nhost.storage.getPublicUrl({ fileId });
-      setUrl(token ? `${baseUrl}?token=${token}` : baseUrl);
-    });
+    // Presigned-URL direkt über die korrekte storageUrl holen (SDK-URL ist bei Local-Dev falsch)
+    const presignedEndpoint = `${storageUrl}/files/${fileId}/presignedurl`;
+    fetch(presignedEndpoint, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => {
+        if (data?.url) {
+          setUrl(data.url);
+        } else {
+          // Fallback: direkte URL mit Auth-Token
+          const directUrl = `${storageUrl}/files/${fileId}`;
+          setUrl(token ? `${directUrl}?token=${token}` : directUrl);
+        }
+      })
+      .catch(() => {
+        // Fallback: direkte URL mit Auth-Token
+        const directUrl = `${storageUrl}/files/${fileId}`;
+        setUrl(token ? `${directUrl}?token=${token}` : directUrl);
+      });
   }, [src, nhost]);
 
   if (!url) return null;

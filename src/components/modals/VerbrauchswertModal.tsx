@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useNhostClient } from '@nhost/nextjs';
+import { storageUrl } from '@/lib/nhost';
 import { Loader2, Camera, X, Plus, AlertCircle } from 'lucide-react';
 import { uploadFehlerText } from '@/lib/upload';
 import Modal from './Modal';
@@ -127,7 +128,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
           setUploading(false);
           return;
         }
-        bild_url = nhost.storage.getPublicUrl({ fileId: fileMetadata.id });
+        bild_url = `${storageUrl}/files/${fileMetadata.id}`;
       } catch (err) {
         setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(err)}`);
         setUploading(false);

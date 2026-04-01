@@ -15,7 +15,7 @@ import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
 import { useNavSettings } from '@/lib/nav-settings-context';
-import nhost from '@/lib/nhost';
+import nhost, { storageUrl } from '@/lib/nhost';
 import { uploadFehlerText } from '@/lib/upload';
 import StorageImage from '@/components/ui/StorageImage';
 
@@ -522,7 +522,7 @@ function ProfilSection() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (uploadError || !fileMetadata) throw uploadError ?? new Error('Upload fehlgeschlagen');
-      setAvatarUrl(nhost.storage.getPublicUrl({ fileId: fileMetadata.id }));
+      setAvatarUrl(`${storageUrl}/files/${fileMetadata.id}`);
     } catch (err) {
       setError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(err)}`);
     } finally {
