@@ -1,35 +1,42 @@
 # HomeTrack 🏠⚡
 
-Eine Web-App zur Erfassung, Analyse und Optimierung von Verbrauchsdaten im Haushalt. Gebaut mit **Next.js 14** und **nHost** (EU-hosted Backend).
+Eine mobile-first PWA zur Erfassung, Analyse und Optimierung von Verbrauchsdaten im Haushalt. Gebaut mit **Next.js 14** und **nHost** (EU-hosted Backend).
 
 ---
 
 ## Features
 
 - 🔐 **Authentifizierung** (Email/Passwort via nHost Auth)
-- 📊 **Dashboard** mit Verbrauchskacheln (letzter Zählerstand, 3-Monats-Durchschnitt, Jahresgesamt)
-- 📈 **Auswertungen** mit interaktiven Charts (Area-Chart) und Tabellenansicht
+- 📊 **Dashboard** mit Verbrauchskacheln – letzter Zählerstand, 3-Monats-Durchschnitt, Min/Max und Jahresgesamt pro Verbrauchstyp
+- 🗂️ **Detailansicht** – Bottom-Drawer pro Verbrauchstyp mit vollständiger Eintrags-Liste, Bearbeiten und Löschen
+- 📈 **Auswertungen** – interaktive Area-Charts und Tabellenansicht mit flexiblen Zeitraumfiltern (3M / 6M / 1J / Aktuelles Jahr / Benutzerdefiniert)
+- 💶 **Kostenansicht** in Auswertungen – automatische Berechnung auf Basis von Preisperioden (Verbrauch × Einheitspreis × (1 + MwSt.))
 - ⚙️ **Einstellungen** – vollständige CRUD-Verwaltung für:
   - Verbrauchstypen (Gas, Strom, Wasser, etc. mit Symbol & Farbe)
-  - Verbrauchsstellen (Zähler) inkl. Standardstelle je Typ
+  - Verbrauchsstellen (Zähler) inkl. Standardstelle je Typ und Neuberechnung aller Verbrauchswerte
   - Anbieter mit Kontaktdaten
   - Verträge mit Preisperioden-History
 - 📷 **Foto-Upload** bei Zählerstandserfassung (nHost Storage)
+- 👤 **Nutzerprofil** – Avatar-Upload, Anzeigename bearbeiten, Passwort ändern
+- 🧭 **Navigationsposition** – unten (Mobile) oder links (Desktop), als Nutzereinstellung gespeichert
+- ➕ **Kontextsensitiver + Button** – je nach aktiver Seite direkt die passende Erfassungsmaske öffnen
+- 📅 **Smarte Datumseingabe** – Auto-Vervollständigung mit Punkten und Kalender-Overlay
 - 🔒 **Row Level Security** – jeder Nutzer sieht nur seine eigenen Daten
 
 ---
 
 ## Tech Stack
 
-| Schicht     | Technologie |
-|-------------|-------------|
-| Frontend    | Next.js 14 (App Router), TypeScript, Tailwind CSS |
-| Backend     | nHost (EU – Frankfurt) |
-| Datenbank   | PostgreSQL via Hasura GraphQL |
-| Auth        | nHost Auth (Email/Passwort) |
-| File Storage| nHost Storage |
-| Charts      | Recharts |
-| Icons       | Lucide React |
+| Schicht      | Technologie                                    |
+|--------------|------------------------------------------------|
+| Frontend     | Next.js 14 (App Router), TypeScript, Tailwind CSS |
+| Backend      | nHost (EU – Frankfurt)                         |
+| Datenbank    | PostgreSQL via Hasura GraphQL                  |
+| Auth         | nHost Auth (Email/Passwort)                    |
+| File Storage | nHost Storage                                  |
+| Charts       | Recharts                                       |
+| Datepicker   | react-day-picker v8 + date-fns v3              |
+| Icons        | Lucide React                                   |
 
 ---
 
@@ -47,12 +54,14 @@ Führe die SQL-Migration in deinem nHost-Projekt aus:
 
 1. Öffne in nHost das **Hasura-Dashboard**
 2. Gehe zu **Data > SQL**
-3. Kopiere den Inhalt von `hasura/migrations/default/1_init/up.sql`
+3. Kopiere den Inhalt von `nhost/migrations/default/1_init/up.sql`
 4. Führe ihn aus
 
-Alternativ via Hasura CLI:
+Alternativ via nHost CLI:
 ```bash
-hasura migrate apply --database-name default
+nhost dev hasura metadata apply \
+  --endpoint https://local.hasura.nhost.run \
+  --admin-secret nhost-admin-secret
 ```
 
 ### 3. Hasura Permissions einrichten (⚠️ WICHTIG)
@@ -65,15 +74,14 @@ Gehe im Hasura-Dashboard zu **Data → [Tabelle] → Permissions** und konfiguri
 
 **Role: `user`**
 
-| Operation | Permission | Row Filter | Column Presets |
-|-----------|------------|------------|----------------|
-| **Select** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
-| **Insert** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | `user_id: X-Hasura-User-Id` |
-| **Update** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
-| **Delete** | ✅ | `{"user_id": {"_eq": "X-Hasura-User-Id"}}` | – |
+| Operation  | Row Filter / Check                              | Column Presets              |
+|------------|------------------------------------------------|-----------------------------|
+| **Select** | `{"user_id": {"_eq": "X-Hasura-User-Id"}}`     | –                           |
+| **Insert** | `{}` *(leer – nicht user_id filtern!)*         | `user_id: X-Hasura-User-Id` |
+| **Update** | `{"user_id": {"_eq": "X-Hasura-User-Id"}}`     | –                           |
+| **Delete** | `{"user_id": {"_eq": "X-Hasura-User-Id"}}`     | –                           |
 
-**Column Presets für Insert:**
-- `user_id` → `X-Hasura-User-Id` (wird automatisch gesetzt)
+> **Achtung:** Der Insert-Check muss `{}` (leer) sein! Ein Check auf `user_id` schlägt fehl, weil der Column-Preset erst **nach** dem Check greift.
 
 **Wichtig:** Ohne diese Permissions erhältst du den Fehler:
 ```
@@ -115,19 +123,20 @@ hometrack/
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx              # Dashboard (Home)
-│   │   ├── auswertungen/         # Charts & Tabellen
-│   │   ├── einstellungen/        # Stammdaten-Verwaltung
+│   │   ├── auswertungen/         # Charts & Tabellen + Kostenansicht
+│   │   ├── einstellungen/        # Stammdaten-Verwaltung & Profil
 │   │   └── auth/login/           # Login & Registrierung
 │   ├── components/
-│   │   ├── layout/               # Navigation
-│   │   ├── home/                 # Dashboard-Komponenten
-│   │   └── modals/               # CRUD-Modals
+│   │   ├── layout/               # Navigation (Bottom / Left)
+│   │   ├── home/                 # Dashboard-Kacheln & Detail-Drawer
+│   │   ├── modals/               # CRUD-Modals (Typen, Stellen, Anbieter, …)
+│   │   └── ui/                   # DateInput, StorageImage
 │   ├── lib/
 │   │   ├── nhost.ts              # nHost Client
 │   │   └── graphql/              # Queries & Mutations
 │   └── types/                    # TypeScript Typen
-├── hasura/
-│   └── migrations/               # SQL Schema
+├── nhost/
+│   └── migrations/               # SQL Schema & Metadaten
 └── .env.local.example
 ```
 
@@ -161,11 +170,8 @@ CMD ["npm", "start"]
 
 ## Roadmap (nächste Schritte)
 
-- [ ] Verbrauchsstellen-Modal (UI für Anlegen/Bearbeiten von Zählern)
-- [ ] Detail-Ansicht pro Verbrauchstyp mit Verlaufsdiagramm
-- [ ] Kostenberechnung in Auswertungen (Verbrauch × Preisperiode)
+- [x] Verbrauchsstellen-Modal (UI für Anlegen/Bearbeiten von Zählern)
+- [x] Detail-Ansicht pro Verbrauchstyp mit Verlaufsdiagramm
+- [x] Kostenberechnung in Auswertungen (Verbrauch × Preisperiode)
 - [ ] PWA / Offline-Support (Service Worker)
 - [ ] iOS-App (SwiftUI) mit gleicher nHost-Datenbank
-
----
-
