@@ -128,10 +128,10 @@ export default function AuswertungenPage() {
     });
   };
 
-  // Typen mit mehreren Stellen (Stellenfilter nur sichtbar wenn relevant)
-  const typenMitMehrerenStellen = activeTypen.filter(typId => {
+  // Typen mit mindestens einer Stelle (Stellenfilter immer anzeigen)
+  const typenMitStellen = activeTypen.filter(typId => {
     const typ = verbrauchstypen.find(t => t.id === typId);
-    return (typ?.verbrauchsstellen?.length ?? 0) > 1;
+    return (typ?.verbrauchsstellen?.length ?? 0) > 0;
   });
 
   return (
@@ -231,15 +231,15 @@ export default function AuswertungenPage() {
                 })}
               </div>
 
-              {/* Stellenfilter – nur für aktive Typen mit mehr als einer Stelle */}
-              {typenMitMehrerenStellen.length > 0 && (
+              {/* Stellenfilter – für alle aktiven Typen mit mindestens einer Stelle */}
+              {typenMitStellen.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-bg-border/50">
                   <p className="ht-section-title mb-2">Verbrauchsstellen</p>
                   <div className="space-y-2">
                     {activeTypen.map(typId => {
                       const typ = verbrauchstypen.find(t => t.id === typId);
                       const stellen = typ?.verbrauchsstellen ?? [];
-                      if (stellen.length <= 1) return null;
+                      if (stellen.length === 0) return null;
                       return (
                         <div key={typId} className="flex items-start gap-3">
                           <span className="text-[11px] text-tx-muted shrink-0 pt-1 w-20 truncate">

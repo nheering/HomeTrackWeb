@@ -17,6 +17,7 @@ import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
 import { useNavSettings } from '@/lib/nav-settings-context';
 import nhost from '@/lib/nhost';
 import { uploadFehlerText } from '@/lib/upload';
+import StorageImage from '@/components/ui/StorageImage';
 
 type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'konto';
 
@@ -515,7 +516,11 @@ function ProfilSection() {
     setUploading(true);
     setError('');
     try {
-      const { fileMetadata, error: uploadError } = await nhost.storage.upload({ file });
+      const token = nhost.auth.getAccessToken();
+      const { fileMetadata, error: uploadError } = await nhost.storage.upload({
+        file,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (uploadError || !fileMetadata) throw uploadError ?? new Error('Upload fehlgeschlagen');
       setAvatarUrl(nhost.storage.getPublicUrl({ fileId: fileMetadata.id }));
     } catch (err) {
@@ -553,7 +558,7 @@ function ProfilSection() {
           className="relative group w-16 h-16 rounded-full overflow-hidden border-2 border-bg-border hover:border-accent/50 transition-colors flex-shrink-0"
         >
           {avatarUrl ? (
-            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            <StorageImage src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-accent/10 flex items-center justify-center text-accent text-2xl font-bold">
               {initials}

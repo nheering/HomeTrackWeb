@@ -7,6 +7,7 @@ import { Loader2, Camera, X, Plus, AlertCircle } from 'lucide-react';
 import { uploadFehlerText } from '@/lib/upload';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
+import StorageImage from '@/components/ui/StorageImage';
 import VerbrauchsstellenModal from './VerbrauchsstellenModal';
 import { INSERT_VERBRAUCHSWERT, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
 import { GET_DASHBOARD_DATA, GET_LETZTER_VERBRAUCHSWERT, GET_VORHERIGER_VERBRAUCHSWERT, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
@@ -115,9 +116,11 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
       setUploading(true);
       setUploadError(null);
       try {
+        const token = nhost.auth.getAccessToken();
         const { fileMetadata, error } = await nhost.storage.upload({
           file: imageFile,
           bucketId: 'default',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (error || !fileMetadata) {
           setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(error)}`);
@@ -267,7 +270,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
           <label className="ht-label">Foto (optional)</label>
           {imagePreview ? (
             <div className="relative">
-              <img src={imagePreview} alt="Vorschau" className="w-full h-40 object-cover rounded-lg border border-bg-border" />
+              <StorageImage src={imagePreview} alt="Vorschau" className="w-full h-40 object-cover rounded-lg border border-bg-border" />
               <button
                 type="button"
                 onClick={() => { setImageFile(null); setImagePreview(null); }}
