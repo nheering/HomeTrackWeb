@@ -8,6 +8,7 @@ import { X, Plus, Edit3, Trash2, Loader2, FileText, Image } from 'lucide-react';
 import { GET_VERBRAUCHSWERTE_LIST } from '@/lib/graphql/queries';
 import { DELETE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
 import VerbrauchswertModal from '@/components/modals/VerbrauchswertModal';
+import StorageImage from '@/components/ui/StorageImage';
 import { Verbrauchstyp, Verbrauchswert } from '@/types';
 
 interface Props {
@@ -31,6 +32,7 @@ export default function VerbrauchsDetailDrawer({ verbrauchstyp, onClose }: Props
   const [editItem, setEditItem]     = useState<Verbrauchswert | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterStelle, setFilterStelle]   = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl]     = useState<string | null>(null);
 
   const werte: Verbrauchswert[] = data?.verbrauchswert ?? [];
 
@@ -201,9 +203,13 @@ export default function VerbrauchsDetailDrawer({ verbrauchstyp, onClose }: Props
                           </span>
                         )}
                         {wert.bild_url && (
-                          <span className="text-tx-muted/60">
-                            <Image className="w-2.5 h-2.5" />
-                          </span>
+                          <button
+                            onClick={() => setLightboxUrl(wert.bild_url!)}
+                            className="inline-flex items-center gap-1 ht-badge bg-accent/10 border border-accent/30 text-accent text-[10px] px-1.5 hover:bg-accent/20 transition-colors cursor-pointer"
+                          >
+                            <Image className="w-3 h-3" />
+                            Foto
+                          </button>
                         )}
                       </div>
                     )}
@@ -238,6 +244,26 @@ export default function VerbrauchsDetailDrawer({ verbrauchstyp, onClose }: Props
           editData={editItem ?? undefined}
           onClose={handleModalClose}
         />
+      )}
+
+      {/* Foto-Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center animate-fade-in"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 ht-btn-ghost p-2 text-white/70 hover:text-white z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <StorageImage
+            src={lightboxUrl}
+            alt="Zählerstandsfoto"
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+          />
+        </div>
       )}
     </>
   );
