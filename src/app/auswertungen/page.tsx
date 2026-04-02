@@ -6,11 +6,13 @@ import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
 import { format, subMonths, startOfYear, startOfMonth } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { BarChart3, Table2, Loader2, Euro, Gauge } from 'lucide-react';
+import { BarChart3, Table2, Loader2, Euro, Gauge, Download, ArrowLeftRight } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -50,6 +52,7 @@ export default function AuswertungenPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
   const [dataMode, setDataMode] = useState<DataMode>('verbrauch');
   const [zeitraumIdx, setZeitraumIdx] = useState(2);
+  const [jahresvergleich, setJahresvergleich] = useState(false);
   const [selectedTypen, setSelectedTypen] = useState<string[]>([]);
   const [selectedStellen, setSelectedStellen] = useState<Record<string, string[]>>({});
 
@@ -75,12 +78,16 @@ export default function AuswertungenPage() {
     });
   }, [verbrauchstypen]);
 
-  const von = zeitraumIdx === CUSTOM_IDX
-    ? customVon
-    : zeitraumIdx === 3
-      ? format(startOfYear(now), 'yyyy-MM-dd')
-      : format(subMonths(now, ZEITRAEUME[zeitraumIdx].months), 'yyyy-MM-dd');
-  const bis = zeitraumIdx === CUSTOM_IDX ? customBis : format(now, 'yyyy-MM-dd');
+  const currentYear = now.getFullYear();
+
+  const von = jahresvergleich
+    ? `${currentYear - 1}-01-01`
+    : zeitraumIdx === CUSTOM_IDX
+      ? customVon
+      : zeitraumIdx === 3
+        ? format(startOfYear(now), 'yyyy-MM-dd')
+        : format(subMonths(now, ZEITRAEUME[zeitraumIdx].months), 'yyyy-MM-dd');
+  const bis = zeitraumIdx === CUSTOM_IDX && !jahresvergleich ? customBis : format(now, 'yyyy-MM-dd');
 
   const activeTypen = selectedTypen.length > 0 ? selectedTypen : verbrauchstypen.map((t) => t.id);
 
@@ -106,6 +113,7 @@ export default function AuswertungenPage() {
     : allWerte;
 
   const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege);
+  const jvData = jahresvergleich ? buildJahresvergleichData(filteredWerte, verbrauchstypen, activeTypen, dataMode, vertraege, currentYear) : [];
 
   const toggleTyp = (id: string) => {
     setSelectedTypen((prev) =>
@@ -144,6 +152,20 @@ export default function AuswertungenPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setJahresvergleich(j => !j)}
+              className={`ht-btn-ghost text-xs ${jahresvergleich ? 'text-accent' : ''}`}
+              title="Jahresvergleich"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => exportCSV(filteredWerte, dataMode, vertraege)}
+              className="ht-btn-ghost text-xs"
+              title="CSV exportieren"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => setDataMode((d) => (d === 'verbrauch' ? 'kosten' : 'verbrauch'))}
               className={`ht-btn-ghost text-xs ${dataMode === 'kosten' ? 'text-accent' : ''}`}
             >
@@ -168,117 +190,134 @@ export default function AuswertungenPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 pt-4 space-y-4">
-        <div className="ht-card">
-          <p className="ht-section-title">Zeitraum</p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            {ZEITRAEUME.map((z, i) => (
+        {jahresvergleich && (
+          <div className="ht-card">
+            <p className="ht-section-title">Jahresvergleich</p>
+            <p className="text-xs text-tx-muted">{currentYear - 1} vs. {currentYear} — monatlich aggregiert</p>
+          </div>
+        )}
+
+        {!jahresvergleich && (
+          <div className="ht-card">
+            <p className="ht-section-title">Zeitraum</p>
+            <div className="flex gap-2 flex-wrap mb-4">
+              {ZEITRAEUME.map((z, i) => (
+                <button
+                  key={i}
+                  onClick={() => setZeitraumIdx(i)}
+                  className={`ht-badge cursor-pointer border transition-all duration-150
+                    ${zeitraumIdx === i
+                      ? 'bg-accent/10 border-accent/40 text-accent'
+                      : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
+                    }`}
+                >
+                  {z.label}
+                </button>
+              ))}
               <button
-                key={i}
-                onClick={() => setZeitraumIdx(i)}
+                onClick={() => setZeitraumIdx(CUSTOM_IDX)}
                 className={`ht-badge cursor-pointer border transition-all duration-150
-                  ${zeitraumIdx === i
+                  ${zeitraumIdx === CUSTOM_IDX
                     ? 'bg-accent/10 border-accent/40 text-accent'
                     : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
                   }`}
               >
-                {z.label}
+                Eigener Zeitraum
               </button>
-            ))}
-            <button
-              onClick={() => setZeitraumIdx(CUSTOM_IDX)}
-              className={`ht-badge cursor-pointer border transition-all duration-150
-                ${zeitraumIdx === CUSTOM_IDX
-                  ? 'bg-accent/10 border-accent/40 text-accent'
-                  : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
-                }`}
-            >
-              Eigener Zeitraum
-            </button>
-          </div>
-
-          {zeitraumIdx === CUSTOM_IDX && (
-            <div className="flex gap-3 mb-4">
-              <div className="flex-1">
-                <label className="ht-label">Von</label>
-                <DateInput value={customVon} onChange={setCustomVon} max={customBis} />
-              </div>
-              <div className="flex-1">
-                <label className="ht-label">Bis</label>
-                <DateInput value={customBis} onChange={setCustomBis} min={customVon} max={format(now, 'yyyy-MM-dd')} />
-              </div>
             </div>
-          )}
 
-          {verbrauchstypen.length > 0 && (
-            <>
-              <p className="ht-section-title">Verbrauchstypen</p>
-              <div className="flex gap-2 flex-wrap">
-                {verbrauchstypen.map((typ) => {
-                  const active = activeTypen.includes(typ.id);
-                  return (
-                    <button
-                      key={typ.id}
-                      onClick={() => toggleTyp(typ.id)}
-                      className={`ht-badge cursor-pointer border transition-all duration-150
-                        ${active
-                          ? 'bg-accent/10 border-accent/40 text-accent'
-                          : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
-                        }`}
-                    >
-                      {typ.symbol} {typ.name}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Stellenfilter – für alle aktiven Typen mit mindestens einer Stelle */}
-              {typenMitStellen.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-bg-border/50">
-                  <p className="ht-section-title mb-2">Verbrauchsstellen</p>
-                  <div className="space-y-2">
-                    {activeTypen.map(typId => {
-                      const typ = verbrauchstypen.find(t => t.id === typId);
-                      const stellen = typ?.verbrauchsstellen ?? [];
-                      if (stellen.length === 0) return null;
-                      return (
-                        <div key={typId} className="flex items-start gap-3">
-                          <span className="text-[11px] text-tx-muted shrink-0 pt-1 w-20 truncate">
-                            {typ?.symbol} {typ?.name}
-                          </span>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {stellen.map(stelle => {
-                              const selected = (selectedStellen[typId] ?? []).includes(stelle.id);
-                              return (
-                                <button
-                                  key={stelle.id}
-                                  onClick={() => toggleStelle(typId, stelle.id)}
-                                  className={`ht-badge cursor-pointer border transition-all duration-150 text-[11px]
-                                    ${selected
-                                      ? 'bg-accent/10 border-accent/40 text-accent'
-                                      : 'bg-bg-base border-bg-border text-tx-muted hover:border-accent/30'
-                                    }`}
-                                >
-                                  {stelle.bezeichnung}
-                                  {stelle.ist_standard && <span className="ml-1 opacity-50">★</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            {zeitraumIdx === CUSTOM_IDX && (
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1">
+                  <label className="ht-label">Von</label>
+                  <DateInput value={customVon} onChange={setCustomVon} max={customBis} />
                 </div>
-              )}
-            </>
-          )}
-        </div>
+                <div className="flex-1">
+                  <label className="ht-label">Bis</label>
+                  <DateInput value={customBis} onChange={setCustomBis} min={customVon} max={format(now, 'yyyy-MM-dd')} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {verbrauchstypen.length > 0 && (
+          <div className="ht-card">
+            <p className="ht-section-title">Verbrauchstypen</p>
+            <div className="flex gap-2 flex-wrap">
+              {verbrauchstypen.map((typ) => {
+                const active = activeTypen.includes(typ.id);
+                return (
+                  <button
+                    key={typ.id}
+                    onClick={() => toggleTyp(typ.id)}
+                    className={`ht-badge cursor-pointer border transition-all duration-150
+                      ${active
+                        ? 'bg-accent/10 border-accent/40 text-accent'
+                        : 'bg-bg-base border-bg-border text-tx-secondary hover:border-accent/30'
+                      }`}
+                  >
+                    {typ.symbol} {typ.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stellenfilter – für alle aktiven Typen mit mindestens einer Stelle */}
+            {typenMitStellen.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-bg-border/50">
+                <p className="ht-section-title mb-2">Verbrauchsstellen</p>
+                <div className="space-y-2">
+                  {activeTypen.map(typId => {
+                    const typ = verbrauchstypen.find(t => t.id === typId);
+                    const stellen = typ?.verbrauchsstellen ?? [];
+                    if (stellen.length === 0) return null;
+                    return (
+                      <div key={typId} className="flex items-start gap-3">
+                        <span className="text-[11px] text-tx-muted shrink-0 pt-1 w-20 truncate">
+                          {typ?.symbol} {typ?.name}
+                        </span>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {stellen.map(stelle => {
+                            const selected = (selectedStellen[typId] ?? []).includes(stelle.id);
+                            return (
+                              <button
+                                key={stelle.id}
+                                onClick={() => toggleStelle(typId, stelle.id)}
+                                className={`ht-badge cursor-pointer border transition-all duration-150 text-[11px]
+                                  ${selected
+                                    ? 'bg-accent/10 border-accent/40 text-accent'
+                                    : 'bg-bg-base border-bg-border text-tx-muted hover:border-accent/30'
+                                  }`}
+                              >
+                                {stelle.bezeichnung}
+                                {stelle.ist_standard && <span className="ml-1 opacity-50">★</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <GraphQLErrorBoundary onRetry={refetch}>
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-6 h-6 text-accent animate-spin" />
             </div>
+          ) : jahresvergleich ? (
+            jvData.length === 0 ? (
+              <div className="ht-card text-center py-12">
+                <p className="text-tx-muted text-sm">Keine Daten für den Jahresvergleich.</p>
+              </div>
+            ) : (
+              <JahresvergleichChart data={jvData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} currentYear={currentYear} dataMode={dataMode} />
+            )
           ) : chartData.length === 0 ? (
             <div className="ht-card text-center py-12">
               <p className="text-tx-muted text-sm">Keine Daten für den gewählten Zeitraum.</p>
@@ -442,6 +481,40 @@ function berechneKosten(datum: string, typId: string, verbrauch: number, vertrae
   return verbrauch * periode.einheitspreis * steuer;
 }
 
+function exportCSV(werte: Verbrauchswert[], dataMode: DataMode, vertraege: any[]) {
+  const sep = ';';
+  const num = (v: number, digits = 2) => v.toFixed(digits).replace('.', ',');
+
+  const headers = dataMode === 'kosten'
+    ? ['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch', 'Einheit', 'Kosten (€)']
+    : ['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch', 'Einheit'];
+
+  const rows = werte.map(w => {
+    const kosten = dataMode === 'kosten' && w.verbrauch != null
+      ? berechneKosten(w.datum, w.verbrauchstyp?.id ?? '', w.verbrauch, vertraege)
+      : null;
+    const base = [
+      format(new Date(w.datum), 'dd.MM.yyyy'),
+      w.verbrauchstyp?.name ?? '',
+      w.verbrauchsstelle?.bezeichnung ?? '',
+      num(Number(w.zaehlerstand), 3),
+      w.verbrauch != null ? num(Number(w.verbrauch), 3) : '',
+      w.verbrauchstyp?.einheit ?? '',
+    ];
+    if (dataMode === 'kosten') base.push(kosten != null ? num(kosten) : '');
+    return base.join(sep);
+  });
+
+  const csv = '\uFEFF' + [headers.join(sep), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hometrack-export-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[]): ChartDataPoint[] {
   if (!verbrauchswerte.length) return [];
 
@@ -483,4 +556,113 @@ function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[
   return Object.entries(byDate)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, point]) => point);
+}
+
+const MONATSNAMEN = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+function buildJahresvergleichData(
+  werte: Verbrauchswert[],
+  typen: Verbrauchstyp[],
+  activeTypen: string[],
+  dataMode: DataMode,
+  vertraege: any[],
+  currentYear: number,
+): ChartDataPoint[] {
+  const prevYear = currentYear - 1;
+  // Bucket: { [monat 0-11]: { [key like "Strom 2026"]: number } }
+  const buckets: Record<number, Record<string, number>> = {};
+  for (let m = 0; m < 12; m++) buckets[m] = {};
+
+  for (const w of werte) {
+    const typId = w.verbrauchstyp?.id;
+    const typName = w.verbrauchstyp?.name;
+    if (!typId || !typName || !activeTypen.includes(typId)) continue;
+
+    const d = new Date(w.datum);
+    const year = d.getFullYear();
+    if (year !== currentYear && year !== prevYear) continue;
+
+    const month = d.getMonth();
+    const verbrauch = w.verbrauch ?? 0;
+
+    let value: number;
+    if (dataMode === 'kosten') {
+      value = berechneKosten(w.datum, typId, verbrauch, vertraege) ?? 0;
+    } else {
+      value = verbrauch;
+    }
+
+    const key = `${typName} ${year}`;
+    buckets[month][key] = (buckets[month][key] ?? 0) + value;
+  }
+
+  return Array.from({ length: 12 }, (_, m) => ({
+    datum: MONATSNAMEN[m],
+    ...buckets[m],
+  }));
+}
+
+interface JVChartProps {
+  data: ChartDataPoint[];
+  verbrauchstypen: Verbrauchstyp[];
+  activeTypen: string[];
+  currentYear: number;
+  dataMode: DataMode;
+}
+
+function JahresvergleichChart({ data, verbrauchstypen, activeTypen, currentYear, dataMode }: JVChartProps) {
+  const prevYear = currentYear - 1;
+  const activeTypes = verbrauchstypen.filter(t => activeTypen.includes(t.id));
+
+  return (
+    <div className="ht-card animate-fade-in">
+      <p className="ht-section-title">{dataMode === 'kosten' ? 'Kostenvergleich (€)' : 'Verbrauchsvergleich'} — {prevYear} vs. {currentYear}</p>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#243044" vertical={false} />
+          <XAxis dataKey="datum" tick={{ fill: '#8b9ab5', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: '#8b9ab5', fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1a2232',
+              border: '1px solid #243044',
+              borderRadius: '8px',
+              color: '#e8edf5',
+              fontSize: '12px',
+            }}
+            formatter={(value: number, name: string) => {
+              const formatted = Number(value).toLocaleString('de-DE', { maximumFractionDigits: 2 });
+              return dataMode === 'kosten' ? [`${formatted} €`, name] : [formatted, name];
+            }}
+          />
+          <Legend wrapperStyle={{ fontSize: '12px', color: '#8b9ab5', paddingTop: '12px' }} />
+          {activeTypes.map(typ => {
+            const color = typ.farbe || '#f97316';
+            return [
+              <Line
+                key={`${typ.id}-curr`}
+                type="monotone"
+                dataKey={`${typ.name} ${currentYear}`}
+                stroke={color}
+                strokeWidth={2}
+                dot={{ r: 3, fill: color }}
+                activeDot={{ r: 5 }}
+              />,
+              <Line
+                key={`${typ.id}-prev`}
+                type="monotone"
+                dataKey={`${typ.name} ${prevYear}`}
+                stroke={color}
+                strokeWidth={1.5}
+                strokeDasharray="5 5"
+                strokeOpacity={0.5}
+                dot={{ r: 2, fill: color, fillOpacity: 0.5 }}
+                activeDot={{ r: 4 }}
+              />,
+            ];
+          })}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }

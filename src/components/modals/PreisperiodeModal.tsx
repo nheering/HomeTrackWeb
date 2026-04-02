@@ -5,7 +5,7 @@ import { useMutation } from '@apollo/client';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
-import { INSERT_PREISPERIODE } from '@/lib/graphql/mutations';
+import { INSERT_PREISPERIODE, UPDATE_PREISPERIODE } from '@/lib/graphql/mutations';
 import { GET_VERTRAEGE } from '@/lib/graphql/queries';
 
 interface Props {
@@ -15,39 +15,43 @@ interface Props {
 }
 
 export default function PreisperiodeModal({ vertragId, editData, onClose }: Props) {
+  const isEdit = !!editData?.id;
+
   const [form, setForm] = useState({
     gueltig_ab:           editData?.gueltig_ab           || new Date().toISOString().split('T')[0],
     gueltig_bis:          editData?.gueltig_bis          || '',
-    grundpreis:           editData?.grundpreis           || '',
+    grundpreis:           editData?.grundpreis != null ? String(editData.grundpreis) : '',
     grundpreis_intervall: editData?.grundpreis_intervall || 'monatlich',
-    einheitspreis:        editData?.einheitspreis        || '',
-    steuer:               editData?.steuer               || '19',
+    einheitspreis:        editData?.einheitspreis != null ? String(editData.einheitspreis) : '',
+    steuer:               editData?.steuer != null ? String(editData.steuer) : '19',
     notizen:              editData?.notizen              || '',
   });
 
-  const [insertPreis, { loading }] = useMutation(INSERT_PREISPERIODE, {
-    refetchQueries: [{ query: GET_VERTRAEGE }],
-    onCompleted: onClose,
-  });
+  const refetchOpts = { refetchQueries: [{ query: GET_VERTRAEGE }], onCompleted: onClose };
+  const [insertPreis, { loading: inserting }] = useMutation(INSERT_PREISPERIODE, refetchOpts);
+  const [updatePreis, { loading: updating }] = useMutation(UPDATE_PREISPERIODE, refetchOpts);
+  const loading = inserting || updating;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    insertPreis({
-      variables: {
-        obj: {
-          ...form,
-          vertrag_id:    vertragId,
-          gueltig_bis:   form.gueltig_bis   || null,
-          grundpreis:    parseFloat(form.grundpreis as any)    || 0,
-          einheitspreis: parseFloat(form.einheitspreis as any) || 0,
-          steuer:        parseFloat(form.steuer as any)        || 19,
-        },
-      },
-    });
+    const clean = {
+      gueltig_ab:           form.gueltig_ab,
+      gueltig_bis:          form.gueltig_bis || null,
+      grundpreis:           parseFloat(form.grundpreis as any) || 0,
+      grundpreis_intervall: form.grundpreis_intervall,
+      einheitspreis:        parseFloat(form.einheitspreis as any) || 0,
+      steuer:               parseFloat(form.steuer as any) || 19,
+      notizen:              form.notizen || null,
+    };
+    if (isEdit) {
+      updatePreis({ variables: { id: editData.id, set: clean } });
+    } else {
+      insertPreis({ variables: { obj: { ...clean, vertrag_id: vertragId } } });
+    }
   };
 
   return (
-    <Modal title="Preisperiode hinzufügen" onClose={onClose}>
+    <Modal title={isEdit ? 'Preisperiode bearbeiten' : 'Preisperiode hinzufügen'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -93,7 +97,7 @@ export default function PreisperiodeModal({ vertragId, editData, onClose }: Prop
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose} className="ht-btn-secondary flex-1 justify-center">Abbrechen</button>
           <button type="submit" disabled={loading} className="ht-btn-primary flex-1 justify-center">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Hinzufügen'}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEdit ? 'Speichern' : 'Hinzufügen'}
           </button>
         </div>
       </form>
