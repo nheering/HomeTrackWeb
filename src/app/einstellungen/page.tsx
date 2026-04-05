@@ -7,19 +7,20 @@ import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Edit3, ChevronDown, ChevronUp, Loader2, LogOut, Star, RefreshCw, Check, Camera, Eye, EyeOff } from 'lucide-react';
 import Navigation from '@/components/layout/Navigation';
 import { usePlusAction } from '@/lib/plus-action-context';
-import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC, GET_USER_SETTINGS } from '@/lib/graphql/queries';
-import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, DELETE_PREISPERIODE, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS, UPDATE_USER_PROFILE } from '@/lib/graphql/mutations';
+import { GET_VERBRAUCHSTYPEN, GET_ANBIETER, GET_VERTRAEGE, GET_VERBRAUCHSWERTE_FOR_RECALC, GET_USER_SETTINGS, GET_HANDWERKER } from '@/lib/graphql/queries';
+import { DELETE_VERBRAUCHSTYP, DELETE_ANBIETER, DELETE_VERTRAG, DELETE_PREISPERIODE, SET_STANDARD_STELLE, DELETE_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSWERT, UPSERT_USER_SETTINGS, UPDATE_USER_PROFILE, DELETE_HANDWERKER } from '@/lib/graphql/mutations';
 import VerbrauchstypModal from '@/components/modals/VerbrauchstypModal';
 import VerbrauchsstellenModal from '@/components/modals/VerbrauchsstellenModal';
 import AnbieterModal from '@/components/modals/AnbieterModal';
 import VertragModal from '@/components/modals/VertragModal';
 import PreisperiodeModal from '@/components/modals/PreisperiodeModal';
+import HandwerkerModal from '@/components/modals/HandwerkerModal';
 import { useNavSettings } from '@/lib/nav-settings-context';
 import nhost, { storageUrl } from '@/lib/nhost';
 import { uploadFehlerText } from '@/lib/upload';
 import StorageImage from '@/components/ui/StorageImage';
 
-type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'konto';
+type Tab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'handwerker' | 'konto';
 
 export default function EinstellungenPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthenticationStatus();
@@ -38,8 +39,9 @@ export default function EinstellungenPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'verbrauchstypen', label: 'Typen'    },
     { id: 'anbieter',        label: 'Anbieter' },
-    { id: 'vertraege',       label: 'Verträge' },
-    { id: 'konto',           label: 'Konto'    },
+    { id: 'vertraege',       label: 'Verträge'    },
+    { id: 'handwerker',      label: 'Handwerker' },
+    { id: 'konto',           label: 'Konto'      },
   ];
 
   return (
@@ -82,6 +84,9 @@ export default function EinstellungenPage() {
         )}
         {activeTab === 'vertraege' && (
           <VertraegeTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
+        )}
+        {activeTab === 'handwerker' && (
+          <HandwerkerTab showCreate={showCreate} onCreateClose={() => setShowCreate(false)} />
         )}
         {activeTab === 'konto' && <KontoTab />}
       </main>
@@ -479,6 +484,75 @@ function VerbrauchNeuBerechnenButton({ typId }: { typId: string }) {
         <><RefreshCw className="w-3.5 h-3.5" /> Verbrauch neu berechnen</>
       )}
     </button>
+  );
+}
+
+// ============================================================
+// Handwerker Tab
+// ============================================================
+function HandwerkerTab({ showCreate, onCreateClose }: { showCreate: boolean; onCreateClose: () => void }) {
+  const { data, loading, refetch } = useQuery(GET_HANDWERKER);
+  const [deleteHW] = useMutation(DELETE_HANDWERKER, { onCompleted: () => refetch() });
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const handwerker = data?.handwerker ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="ht-section-title">Handwerker ({handwerker.length})</p>
+      </div>
+
+      {loading && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-accent animate-spin" /></div>}
+
+      {handwerker.map((h: any) => {
+        const count = h.handwerkerrechnungen_aggregate?.aggregate?.count ?? 0;
+        const summe = h.handwerkerrechnungen_aggregate?.aggregate?.sum?.betrag_gesamt ?? 0;
+        return (
+          <div key={h.id} className="ht-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-tx-primary text-sm">{h.name}</p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  {h.gewerk && <span className="ht-badge bg-accent/10 border border-accent/30 text-accent text-[10px]">{h.gewerk}</span>}
+                  <span className="text-xs text-tx-muted">
+                    {count} {count === 1 ? 'Rechnung' : 'Rechnungen'}
+                    {summe > 0 && ` · ${Number(summe).toLocaleString('de-DE', { minimumFractionDigits: 2 })} €`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setEditItem(h)} className="ht-btn-ghost p-1.5"><Edit3 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => deleteHW({ variables: { id: h.id } })} className="ht-btn-ghost p-1.5 text-red-400/70 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setExpanded(expanded === h.id ? null : h.id)} className="ht-btn-ghost p-1.5">
+                  {expanded === h.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {expanded === h.id && (
+              <div className="mt-3 pt-3 border-t border-bg-border space-y-1 text-xs text-tx-secondary">
+                {h.telefon  && <p>📞 {h.telefon}</p>}
+                {h.email    && <p>✉️ {h.email}</p>}
+                {h.webseite && <p>🌐 {h.webseite}</p>}
+                {(h.strasse || h.ort) && (
+                  <p>📍 {[h.strasse, h.hausnummer].filter(Boolean).join(' ')}{h.strasse && h.ort ? ', ' : ''}{[h.plz, h.ort].filter(Boolean).join(' ')}</p>
+                )}
+                {h.notizen  && <p className="text-tx-muted">{h.notizen}</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {(showCreate || editItem) && (
+        <HandwerkerModal
+          editData={editItem}
+          onClose={() => { onCreateClose(); setEditItem(null); refetch(); }}
+        />
+      )}
+    </div>
   );
 }
 

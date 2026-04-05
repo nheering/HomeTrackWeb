@@ -96,9 +96,48 @@ export interface Verbrauchswert {
   verbrauchsstelle?: Verbrauchsstelle;
 }
 
+export interface Handwerker {
+  id: string;
+  user_id: string;
+  name: string;
+  gewerk?: string;
+  strasse?: string;
+  hausnummer?: string;
+  plz?: string;
+  ort?: string;
+  telefon?: string;
+  email?: string;
+  webseite?: string;
+  notizen?: string;
+  erstellt_am: string;
+  handwerkerrechnungen?: Handwerkerrechnung[];
+}
+
+export interface Handwerkerrechnung {
+  id: string;
+  user_id: string;
+  handwerker_id?: string;
+  verbrauchstyp_id?: string;
+  datum: string;
+  beschreibung: string;
+  kategorie?: string;
+  betrag_gesamt: number;
+  betrag_lohn: number;
+  betrag_material: number;
+  betrag_fahrtkosten: number;
+  zahlungsart: string;
+  rechnungsnummer?: string;
+  dokument_url?: string;
+  ist_absetzbar: boolean;
+  notizen?: string;
+  erstellt_am: string;
+  handwerker?: Handwerker;
+  verbrauchstyp?: Verbrauchstyp;
+}
+
 // UI-Hilfstypes
-export type TabName = 'home' | 'auswertungen' | 'einstellungen';
-export type EinstellungenTab = 'verbrauchstypen' | 'anbieter' | 'vertraege';
+export type TabName = 'home' | 'auswertungen' | 'handwerker' | 'einstellungen';
+export type EinstellungenTab = 'verbrauchstypen' | 'anbieter' | 'vertraege' | 'handwerker';
 
 export interface KachelData {
   verbrauchstyp: Verbrauchstyp;

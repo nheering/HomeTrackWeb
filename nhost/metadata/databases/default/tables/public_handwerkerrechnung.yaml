@@ -1,0 +1,85 @@
+table:
+  name: handwerkerrechnung
+  schema: public
+object_relationships:
+  - name: handwerker
+    using:
+      foreign_key_constraint_on: handwerker_id
+  - name: verbrauchstyp
+    using:
+      foreign_key_constraint_on: verbrauchstyp_id
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      set:
+        user_id: x-hasura-user-id
+      columns:
+        - handwerker_id
+        - verbrauchstyp_id
+        - datum
+        - beschreibung
+        - kategorie
+        - betrag_gesamt
+        - betrag_lohn
+        - betrag_material
+        - betrag_fahrtkosten
+        - zahlungsart
+        - rechnungsnummer
+        - dokument_url
+        - ist_absetzbar
+        - notizen
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - user_id
+        - handwerker_id
+        - verbrauchstyp_id
+        - datum
+        - beschreibung
+        - kategorie
+        - betrag_gesamt
+        - betrag_lohn
+        - betrag_material
+        - betrag_fahrtkosten
+        - zahlungsart
+        - rechnungsnummer
+        - dokument_url
+        - ist_absetzbar
+        - notizen
+        - erstellt_am
+        - aktualisiert_am
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      allow_aggregations: true
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - handwerker_id
+        - verbrauchstyp_id
+        - datum
+        - beschreibung
+        - kategorie
+        - betrag_gesamt
+        - betrag_lohn
+        - betrag_material
+        - betrag_fahrtkosten
+        - zahlungsart
+        - rechnungsnummer
+        - dokument_url
+        - ist_absetzbar
+        - notizen
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      check: {}
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id

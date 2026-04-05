@@ -1,0 +1,74 @@
+table:
+  name: handwerker
+  schema: public
+array_relationships:
+  - name: handwerkerrechnungen
+    using:
+      foreign_key_constraint_on:
+        column: handwerker_id
+        table:
+          name: handwerkerrechnung
+          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check: {}
+      set:
+        user_id: x-hasura-user-id
+      columns:
+        - name
+        - gewerk
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - notizen
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - user_id
+        - name
+        - gewerk
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - notizen
+        - erstellt_am
+        - aktualisiert_am
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      allow_aggregations: true
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - name
+        - gewerk
+        - strasse
+        - hausnummer
+        - plz
+        - ort
+        - telefon
+        - email
+        - webseite
+        - notizen
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+      check: {}
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id

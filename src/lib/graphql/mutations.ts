@@ -166,6 +166,56 @@ export const DELETE_VERBRAUCHSWERT = gql`
 `;
 
 // ============================================================
+// HANDWERKER
+// ============================================================
+export const INSERT_HANDWERKER = gql`
+  mutation InsertHandwerker($obj: handwerker_insert_input!) {
+    insert_handwerker_one(object: $obj) {
+      id name gewerk
+    }
+  }
+`;
+
+export const UPDATE_HANDWERKER = gql`
+  mutation UpdateHandwerker($id: uuid!, $set: handwerker_set_input!) {
+    update_handwerker_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id name gewerk
+    }
+  }
+`;
+
+export const DELETE_HANDWERKER = gql`
+  mutation DeleteHandwerker($id: uuid!) {
+    delete_handwerker_by_pk(id: $id) { id }
+  }
+`;
+
+// ============================================================
+// HANDWERKERRECHNUNG
+// ============================================================
+export const INSERT_HANDWERKERRECHNUNG = gql`
+  mutation InsertHandwerkerrechnung($obj: handwerkerrechnung_insert_input!) {
+    insert_handwerkerrechnung_one(object: $obj) {
+      id datum beschreibung betrag_gesamt
+    }
+  }
+`;
+
+export const UPDATE_HANDWERKERRECHNUNG = gql`
+  mutation UpdateHandwerkerrechnung($id: uuid!, $set: handwerkerrechnung_set_input!) {
+    update_handwerkerrechnung_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id datum beschreibung betrag_gesamt
+    }
+  }
+`;
+
+export const DELETE_HANDWERKERRECHNUNG = gql`
+  mutation DeleteHandwerkerrechnung($id: uuid!) {
+    delete_handwerkerrechnung_by_pk(id: $id) { id }
+  }
+`;
+
+// ============================================================
 // USER SETTINGS
 // ============================================================
 export const UPSERT_USER_SETTINGS = gql`

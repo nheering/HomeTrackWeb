@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, BarChart3, Settings, Plus } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Wrench, Settings, Plus } from 'lucide-react';
 import { usePlusActionContext } from '@/lib/plus-action-context';
 import { useNavSettings } from '@/lib/nav-settings-context';
 
 const tabs = [
   { href: '/',              icon: LayoutDashboard, label: 'Home'         },
   { href: '/auswertungen',  icon: BarChart3,        label: 'Auswertungen' },
+  { href: '/handwerker',    icon: Wrench,           label: 'Handwerker'   },
   { href: '/einstellungen', icon: Settings,         label: 'Einstellungen'},
 ];
 
@@ -40,15 +41,15 @@ export default function Navigation() {
   const LeftNav = () => (
     <nav className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 w-16 flex-col items-center
                     gap-1 py-6 bg-bg-surface/95 backdrop-blur-xl border-r border-bg-border">
-      {tabs.slice(0, 1).map(tab => (
-        <SideTab key={tab.href} {...tab} active={pathname === tab.href} />
+      {tabs.slice(0, 2).map(tab => (
+        <SideTab key={tab.href} {...tab} active={pathname === tab.href || pathname.startsWith(tab.href + '/')} />
       ))}
 
       <div className="my-2">
         <PlusBtn />
       </div>
 
-      {tabs.slice(1).map(tab => (
+      {tabs.slice(2).map(tab => (
         <SideTab
           key={tab.href}
           {...tab}
@@ -63,15 +64,15 @@ export default function Navigation() {
     <nav className={`fixed bottom-0 left-0 right-0 z-40 bg-bg-surface/95 backdrop-blur-xl border-t border-bg-border
                      ${navPosition === 'left' ? 'md:hidden' : ''}`}>
       <div className="max-w-3xl mx-auto flex items-center justify-around px-2 pb-safe">
-        {tabs.slice(0, 1).map(tab => (
-          <NavTab key={tab.href} {...tab} active={pathname === tab.href} />
+        {tabs.slice(0, 2).map(tab => (
+          <NavTab key={tab.href} {...tab} active={pathname === tab.href || pathname.startsWith(tab.href + '/')} />
         ))}
 
-        <div className="flex flex-col items-center py-2 px-4">
+        <div className="flex flex-col items-center py-2 px-2">
           <PlusBtn />
         </div>
 
-        {tabs.slice(1).map(tab => (
+        {tabs.slice(2).map(tab => (
           <NavTab
             key={tab.href}
             {...tab}

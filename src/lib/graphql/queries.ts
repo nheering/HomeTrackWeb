@@ -219,6 +219,78 @@ export const GET_USER_SETTINGS = gql`
   }
 `;
 
+// ============================================================
+// HANDWERKER
+// ============================================================
+export const GET_HANDWERKER = gql`
+  query GetHandwerker {
+    handwerker(order_by: { name: asc }) {
+      id name gewerk strasse hausnummer plz ort
+      telefon email webseite notizen erstellt_am
+      handwerkerrechnungen_aggregate {
+        aggregate {
+          count
+          sum { betrag_gesamt }
+        }
+      }
+    }
+  }
+`;
+
+export const GET_HANDWERKERRECHNUNGEN = gql`
+  query GetHandwerkerrechnungen($jahr_von: date, $jahr_bis: date) {
+    handwerkerrechnung(
+      where: {
+        datum: { _gte: $jahr_von, _lte: $jahr_bis }
+      }
+      order_by: { datum: desc }
+    ) {
+      id datum beschreibung kategorie
+      betrag_gesamt betrag_lohn betrag_material betrag_fahrtkosten
+      zahlungsart rechnungsnummer dokument_url ist_absetzbar
+      notizen erstellt_am
+      handwerker_id verbrauchstyp_id
+      handwerker { id name gewerk }
+      verbrauchstyp { id name symbol farbe }
+    }
+  }
+`;
+
+export const GET_HANDWERKER_STEUER_JAHR = gql`
+  query GetHandwerkerSteuerJahr($jahr_von: date!, $jahr_bis: date!) {
+    gesamt: handwerkerrechnung_aggregate(
+      where: { datum: { _gte: $jahr_von, _lte: $jahr_bis } }
+    ) {
+      aggregate {
+        count
+        sum {
+          betrag_gesamt
+          betrag_lohn
+          betrag_material
+          betrag_fahrtkosten
+        }
+      }
+    }
+    absetzbar: handwerkerrechnung_aggregate(
+      where: {
+        datum: { _gte: $jahr_von, _lte: $jahr_bis }
+        ist_absetzbar: { _eq: true }
+      }
+    ) {
+      aggregate {
+        count
+        sum {
+          betrag_lohn
+          betrag_fahrtkosten
+        }
+      }
+    }
+  }
+`;
+
+// ============================================================
+// VERBRAUCHSWERTE LIST
+// ============================================================
 export const GET_VERBRAUCHSWERTE_LIST = gql`
   query GetVerbrauchswerteList($typ_id: uuid) {
     verbrauchswert(
