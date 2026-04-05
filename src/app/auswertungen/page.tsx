@@ -6,7 +6,7 @@ import { useAuthenticationStatus } from '@nhost/nextjs';
 import { useRouter } from 'next/navigation';
 import { format, subMonths, startOfYear, startOfMonth } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { BarChart3, Table2, Loader2, Euro, Gauge, Download, ArrowLeftRight } from 'lucide-react';
+import { BarChart3, Table2, Loader2, Euro, Gauge, Download, ArrowLeftRight, Wrench } from 'lucide-react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -22,8 +22,8 @@ import {
 import Navigation from '@/components/layout/Navigation';
 import { GraphQLErrorBoundary } from '@/components/error';
 import DateInput from '@/components/ui/DateInput';
-import { GET_AUSWERTUNG_DATEN, GET_VERBRAUCHSTYPEN, GET_PREISPERIODEN_FOR_TYPEN } from '@/lib/graphql/queries';
-import { Verbrauchstyp, Verbrauchswert } from '@/types';
+import { GET_AUSWERTUNG_DATEN, GET_VERBRAUCHSTYPEN, GET_PREISPERIODEN_FOR_TYPEN, GET_HANDWERKERRECHNUNGEN } from '@/lib/graphql/queries';
+import { Verbrauchstyp, Verbrauchswert, Handwerkerrechnung } from '@/types';
 
 type ViewMode = 'chart' | 'table';
 type DataMode = 'verbrauch' | 'kosten';
@@ -55,6 +55,7 @@ export default function AuswertungenPage() {
   const [jahresvergleich, setJahresvergleich] = useState(false);
   const [selectedTypen, setSelectedTypen] = useState<string[]>([]);
   const [selectedStellen, setSelectedStellen] = useState<Record<string, string[]>>({});
+  const [showHandwerker, setShowHandwerker] = useState(false);
 
   const now = new Date();
   const [customVon, setCustomVon] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
@@ -101,6 +102,13 @@ export default function AuswertungenPage() {
     fetchPolicy: 'cache-and-network',
   });
 
+  const { data: hwData } = useQuery(GET_HANDWERKERRECHNUNGEN, {
+    variables: { jahr_von: von, jahr_bis: bis },
+    skip: !isAuthenticated || !showHandwerker,
+    fetchPolicy: 'cache-and-network',
+  });
+  const hwRechnungen: Handwerkerrechnung[] = hwData?.handwerkerrechnung ?? [];
+
   const { data: preisData } = useQuery(GET_PREISPERIODEN_FOR_TYPEN, {
     variables: { typen: activeTypen },
     skip: !isAuthenticated || activeTypen.length === 0 || dataMode !== 'kosten',
@@ -125,7 +133,7 @@ export default function AuswertungenPage() {
     ? `${jvVonYear - 1}`
     : `${jvVonYear - 1}/${String(jvBisYear - 1).slice(2)}`;
 
-  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege);
+  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege, showHandwerker ? hwRechnungen : []);
   const jvData = jahresvergleich ? buildJahresvergleichData(filteredWerte, verbrauchstypen, activeTypen, dataMode, vertraege, baseVon, baseBis, currentPeriodLabel, prevPeriodLabel) : [];
 
   const toggleTyp = (id: string) => {
@@ -163,39 +171,55 @@ export default function AuswertungenPage() {
             <h1 className="text-lg font-bold text-tx-primary">Auswertungen</h1>
             <p className="text-xs text-tx-muted">{von} – {bis}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setShowHandwerker(h => !h)}
+              className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${showHandwerker ? 'text-accent' : ''}`}
+              title="Handwerkerkosten im Chart und in der Tabelle einblenden"
+            >
+              <Wrench className="w-4 h-4" />
+              <span className="hidden sm:inline">Handwerker</span>
+            </button>
             <button
               onClick={() => setJahresvergleich(j => !j)}
-              className={`ht-btn-ghost text-xs ${jahresvergleich ? 'text-accent' : ''}`}
-              title="Jahresvergleich"
+              className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${jahresvergleich ? 'text-accent' : ''}`}
+              title="Verbrauchsdaten mit dem Vorjahr vergleichen"
             >
               <ArrowLeftRight className="w-4 h-4" />
+              <span className="hidden sm:inline">Vergleich</span>
             </button>
             <button
               onClick={() => exportCSV(filteredWerte, dataMode, vertraege)}
-              className="ht-btn-ghost text-xs"
-              title="CSV exportieren"
+              className="ht-btn-ghost text-xs flex items-center gap-1.5"
+              title="Alle sichtbaren Daten als CSV-Datei herunterladen"
             >
               <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
             </button>
             <button
               onClick={() => setDataMode((d) => (d === 'verbrauch' ? 'kosten' : 'verbrauch'))}
-              className={`ht-btn-ghost text-xs ${dataMode === 'kosten' ? 'text-accent' : ''}`}
+              className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${dataMode === 'kosten' ? 'text-accent' : ''}`}
+              title={dataMode === 'kosten' ? 'Zur Verbrauchsansicht wechseln' : 'Zur Kostenansicht wechseln (€)'}
             >
               {dataMode === 'kosten' ? <Euro className="w-4 h-4" /> : <Gauge className="w-4 h-4" />}
+              <span className="hidden sm:inline">{dataMode === 'kosten' ? 'Kosten' : 'Verbrauch'}</span>
             </button>
             <div className="flex bg-bg-card border border-bg-border rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('chart')}
-                className={`px-2.5 py-1.5 ${viewMode === 'chart' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                className={`px-2.5 py-1.5 flex items-center gap-1.5 ${viewMode === 'chart' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                title="Daten als Chart anzeigen"
               >
                 <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">Chart</span>
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-2.5 py-1.5 ${viewMode === 'table' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                className={`px-2.5 py-1.5 flex items-center gap-1.5 ${viewMode === 'table' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                title="Daten als Tabelle anzeigen"
               >
                 <Table2 className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">Tabelle</span>
               </button>
             </div>
           </div>
@@ -336,9 +360,9 @@ export default function AuswertungenPage() {
               <p className="text-tx-muted text-sm">Keine Daten für den gewählten Zeitraum.</p>
             </div>
           ) : viewMode === 'chart' ? (
-            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} />
+            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} showHandwerker={showHandwerker} />
           ) : (
-            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} />
+            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} hwRechnungen={showHandwerker ? hwRechnungen : []} />
           )}
         </GraphQLErrorBoundary>
       </main>
@@ -353,10 +377,12 @@ interface ChartViewProps {
   verbrauchstypen: Verbrauchstyp[];
   activeTypen: string[];
   dataMode: DataMode;
+  showHandwerker: boolean;
 }
 
-function ChartView({ data, verbrauchstypen, activeTypen, dataMode }: ChartViewProps) {
+function ChartView({ data, verbrauchstypen, activeTypen, dataMode, showHandwerker }: ChartViewProps) {
   const activeTypes = verbrauchstypen.filter((t) => activeTypen.includes(t.id));
+  const HW_COLOR = '#a855f7';
 
   return (
     <div className="ht-card animate-fade-in">
@@ -370,6 +396,12 @@ function ChartView({ data, verbrauchstypen, activeTypen, dataMode }: ChartViewPr
                 <stop offset="95%" stopColor={typ.farbe || '#f97316'} stopOpacity={0} />
               </linearGradient>
             ))}
+            {showHandwerker && (
+              <linearGradient id="grad-handwerker" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={HW_COLOR} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={HW_COLOR} stopOpacity={0} />
+              </linearGradient>
+            )}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#243044" vertical={false} />
           <XAxis dataKey="datum" tick={{ fill: '#8b9ab5', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -384,7 +416,7 @@ function ChartView({ data, verbrauchstypen, activeTypen, dataMode }: ChartViewPr
             }}
             formatter={(value: number, name: string) => {
               const formatted = Number(value).toLocaleString('de-DE', { maximumFractionDigits: 2 });
-              return dataMode === 'kosten' ? [`${formatted} €`, name] : [formatted, name];
+              return dataMode === 'kosten' || name === 'Handwerker' ? [`${formatted} €`, name] : [formatted, name];
             }}
           />
           <Legend wrapperStyle={{ fontSize: '12px', color: '#8b9ab5', paddingTop: '12px' }} />
@@ -401,6 +433,18 @@ function ChartView({ data, verbrauchstypen, activeTypen, dataMode }: ChartViewPr
               connectNulls
             />
           ))}
+          {showHandwerker && (
+            <Area
+              type="monotone"
+              dataKey="Handwerker"
+              stroke={HW_COLOR}
+              strokeWidth={2}
+              fill="url(#grad-handwerker)"
+              dot={false}
+              activeDot={{ r: 4, fill: HW_COLOR }}
+              connectNulls
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -411,12 +455,15 @@ interface TableViewProps {
   rawData: Verbrauchswert[];
   dataMode: DataMode;
   vertraege: any[];
+  hwRechnungen: Handwerkerrechnung[];
 }
 
-function TableView({ rawData, dataMode, vertraege }: TableViewProps) {
+function TableView({ rawData, dataMode, vertraege, hwRechnungen }: TableViewProps) {
   const headers = dataMode === 'kosten'
     ? ['Datum', 'Typ', 'Stelle', 'Verbrauch', 'Kosten (€)']
     : ['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch'];
+
+  const euroFmt = (v: number) => Number(v).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="ht-card animate-fade-in overflow-x-auto">
@@ -469,9 +516,27 @@ function TableView({ rawData, dataMode, vertraege }: TableViewProps) {
               </tr>
             );
           })}
+          {hwRechnungen.map((r) => (
+            <tr key={`hw-${r.id}`} className="border-b border-bg-border/50 hover:bg-bg-hover transition-colors bg-purple-500/5">
+              <td className="py-2 pr-4 font-mono text-xs text-tx-secondary">
+                {format(new Date(r.datum), 'dd.MM.yyyy')}
+              </td>
+              <td className="py-2 pr-4">
+                <span className="flex items-center gap-1.5">
+                  <Wrench className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-tx-primary">{r.beschreibung}</span>
+                </span>
+              </td>
+              <td className="py-2 pr-4 text-tx-secondary text-xs">{r.handwerker?.name ?? '–'}</td>
+              <td className="py-2 pr-4 font-mono text-tx-secondary tabular-nums">–</td>
+              <td className="py-2 font-mono tabular-nums text-purple-400">
+                {euroFmt(r.betrag_gesamt)} €
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
-      {rawData.length === 0 && (
+      {rawData.length === 0 && hwRechnungen.length === 0 && (
         <p className="text-center text-tx-muted text-sm py-6">Keine Einträge</p>
       )}
     </div>
@@ -529,8 +594,8 @@ function exportCSV(werte: Verbrauchswert[], dataMode: DataMode, vertraege: any[]
   URL.revokeObjectURL(url);
 }
 
-function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[]): ChartDataPoint[] {
-  if (!verbrauchswerte.length) return [];
+function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[], hwRechnungen: Handwerkerrechnung[] = []): ChartDataPoint[] {
+  if (!verbrauchswerte.length && !hwRechnungen.length) return [];
 
   const groups: Record<string, Verbrauchswert[]> = {};
   for (const w of verbrauchswerte) {
@@ -565,6 +630,11 @@ function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[
 
       byDate[w.datum][typName] = ((byDate[w.datum][typName] as number) ?? 0) + value;
     }
+  }
+
+  for (const r of hwRechnungen) {
+    if (!byDate[r.datum]) byDate[r.datum] = { datum: format(new Date(r.datum), 'dd.MM.yy', { locale: de }) };
+    byDate[r.datum]['Handwerker'] = ((byDate[r.datum]['Handwerker'] as number) ?? 0) + r.betrag_gesamt;
   }
 
   return Object.entries(byDate)
