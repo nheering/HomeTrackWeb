@@ -133,7 +133,8 @@ export default function AuswertungenPage() {
     ? `${jvVonYear - 1}`
     : `${jvVonYear - 1}/${String(jvBisYear - 1).slice(2)}`;
 
-  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege, showHandwerker ? hwRechnungen : []);
+  const handwerkerAktiv = showHandwerker && dataMode === 'kosten';
+  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege, handwerkerAktiv ? hwRechnungen : []);
   const jvData = jahresvergleich ? buildJahresvergleichData(filteredWerte, verbrauchstypen, activeTypen, dataMode, vertraege, baseVon, baseBis, currentPeriodLabel, prevPeriodLabel) : [];
 
   const toggleTyp = (id: string) => {
@@ -172,14 +173,16 @@ export default function AuswertungenPage() {
             <p className="text-xs text-tx-muted">{von} – {bis}</p>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => setShowHandwerker(h => !h)}
-              className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${showHandwerker ? 'text-accent' : ''}`}
-              title="Handwerkerkosten im Chart und in der Tabelle einblenden"
-            >
-              <Wrench className="w-4 h-4" />
-              <span className="hidden sm:inline">Handwerker</span>
-            </button>
+            {dataMode === 'kosten' && (
+              <button
+                onClick={() => setShowHandwerker(h => !h)}
+                className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${showHandwerker ? 'text-accent' : ''}`}
+                title="Handwerkerkosten im Chart und in der Tabelle einblenden"
+              >
+                <Wrench className="w-4 h-4" />
+                <span className="hidden sm:inline">Handwerker</span>
+              </button>
+            )}
             <button
               onClick={() => setJahresvergleich(j => !j)}
               className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${jahresvergleich ? 'text-accent' : ''}`}
@@ -360,9 +363,9 @@ export default function AuswertungenPage() {
               <p className="text-tx-muted text-sm">Keine Daten für den gewählten Zeitraum.</p>
             </div>
           ) : viewMode === 'chart' ? (
-            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} showHandwerker={showHandwerker} />
+            <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} showHandwerker={handwerkerAktiv} />
           ) : (
-            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} hwRechnungen={showHandwerker ? hwRechnungen : []} />
+            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} hwRechnungen={handwerkerAktiv ? hwRechnungen : []} />
           )}
         </GraphQLErrorBoundary>
       </main>
