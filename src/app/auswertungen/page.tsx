@@ -56,6 +56,7 @@ export default function AuswertungenPage() {
   const [selectedTypen, setSelectedTypen] = useState<string[]>([]);
   const [selectedStellen, setSelectedStellen] = useState<Record<string, string[]>>({});
   const [showHandwerker, setShowHandwerker] = useState(false);
+  const [mergeHandwerker, setMergeHandwerker] = useState(false);
 
   const now = new Date();
   const [customVon, setCustomVon] = useState(format(startOfMonth(now), 'yyyy-MM-dd'));
@@ -134,7 +135,7 @@ export default function AuswertungenPage() {
     : `${jvVonYear - 1}/${String(jvBisYear - 1).slice(2)}`;
 
   const handwerkerAktiv = showHandwerker && dataMode === 'kosten';
-  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege, handwerkerAktiv ? hwRechnungen : []);
+  const chartData = buildChartData(filteredWerte, verbrauchstypen, dataMode, vertraege, handwerkerAktiv ? hwRechnungen : [], mergeHandwerker);
   const jvData = jahresvergleich ? buildJahresvergleichData(filteredWerte, verbrauchstypen, activeTypen, dataMode, vertraege, baseVon, baseBis, currentPeriodLabel, prevPeriodLabel) : [];
 
   const toggleTyp = (id: string) => {
@@ -282,6 +283,7 @@ export default function AuswertungenPage() {
         )}
 
         {verbrauchstypen.length > 0 && (
+          <div className={`grid gap-4 ${handwerkerAktiv ? 'grid-cols-[1fr_auto]' : ''}`}>
           <div className="ht-card">
             <p className="ht-section-title">Verbrauchstypen</p>
             <div className="flex gap-2 flex-wrap">
@@ -343,6 +345,32 @@ export default function AuswertungenPage() {
               </div>
             )}
           </div>
+
+          {handwerkerAktiv && (
+            <div className="ht-card">
+              <div className="flex items-center gap-2 mb-3">
+                <Wrench className="w-4 h-4 text-purple-400" />
+                <p className="ht-section-title !mb-0">Handwerker</p>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div
+                  role="switch"
+                  aria-checked={mergeHandwerker}
+                  onClick={() => setMergeHandwerker(m => !m)}
+                  className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${mergeHandwerker ? 'bg-accent' : 'bg-bg-border'}`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${mergeHandwerker ? 'translate-x-5' : ''}`} />
+                </div>
+                <span className="text-xs text-tx-secondary group-hover:text-tx-primary transition-colors leading-tight">
+                  Zugeordnete Kosten einrechnen
+                </span>
+              </label>
+              <p className="text-[11px] text-tx-muted mt-2 leading-snug">
+                Nur nicht zugeordnete Rechnungen separat anzeigen.
+              </p>
+            </div>
+          )}
+          </div>
         )}
 
         <GraphQLErrorBoundary onRetry={refetch}>
@@ -365,7 +393,7 @@ export default function AuswertungenPage() {
           ) : viewMode === 'chart' ? (
             <ChartView data={chartData} verbrauchstypen={verbrauchstypen} activeTypen={activeTypen} dataMode={dataMode} showHandwerker={handwerkerAktiv} />
           ) : (
-            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} hwRechnungen={handwerkerAktiv ? hwRechnungen : []} />
+            <TableView rawData={filteredWerte} dataMode={dataMode} vertraege={vertraege} hwRechnungen={handwerkerAktiv ? hwRechnungen : []} mergeHandwerker={mergeHandwerker} />
           )}
         </GraphQLErrorBoundary>
       </main>
@@ -386,6 +414,7 @@ interface ChartViewProps {
 function ChartView({ data, verbrauchstypen, activeTypen, dataMode, showHandwerker }: ChartViewProps) {
   const activeTypes = verbrauchstypen.filter((t) => activeTypen.includes(t.id));
   const HW_COLOR = '#a855f7';
+  const hasHandwerkerData = showHandwerker && data.some(d => d['Handwerker'] != null);
 
   return (
     <div className="ht-card animate-fade-in">
@@ -399,7 +428,7 @@ function ChartView({ data, verbrauchstypen, activeTypen, dataMode, showHandwerke
                 <stop offset="95%" stopColor={typ.farbe || '#f97316'} stopOpacity={0} />
               </linearGradient>
             ))}
-            {showHandwerker && (
+            {hasHandwerkerData && (
               <linearGradient id="grad-handwerker" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={HW_COLOR} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={HW_COLOR} stopOpacity={0} />
@@ -436,7 +465,7 @@ function ChartView({ data, verbrauchstypen, activeTypen, dataMode, showHandwerke
               connectNulls
             />
           ))}
-          {showHandwerker && (
+          {hasHandwerkerData && (
             <Area
               type="monotone"
               dataKey="Handwerker"
@@ -459,9 +488,10 @@ interface TableViewProps {
   dataMode: DataMode;
   vertraege: any[];
   hwRechnungen: Handwerkerrechnung[];
+  mergeHandwerker: boolean;
 }
 
-function TableView({ rawData, dataMode, vertraege, hwRechnungen }: TableViewProps) {
+function TableView({ rawData, dataMode, vertraege, hwRechnungen, mergeHandwerker }: TableViewProps) {
   const headers = dataMode === 'kosten'
     ? ['Datum', 'Typ', 'Stelle', 'Verbrauch', 'Kosten (€)']
     : ['Datum', 'Typ', 'Stelle', 'Zählerstand', 'Verbrauch'];
@@ -519,7 +549,9 @@ function TableView({ rawData, dataMode, vertraege, hwRechnungen }: TableViewProp
               </tr>
             );
           })}
-          {hwRechnungen.map((r) => (
+          {hwRechnungen
+            .filter(r => !mergeHandwerker || !r.verbrauchstyp_id)
+            .map((r) => (
             <tr key={`hw-${r.id}`} className="border-b border-bg-border/50 hover:bg-bg-hover transition-colors bg-purple-500/5">
               <td className="py-2 pr-4 font-mono text-xs text-tx-secondary">
                 {format(new Date(r.datum), 'dd.MM.yyyy')}
@@ -533,6 +565,27 @@ function TableView({ rawData, dataMode, vertraege, hwRechnungen }: TableViewProp
               <td className="py-2 pr-4 text-tx-secondary text-xs">{r.handwerker?.name ?? '–'}</td>
               <td className="py-2 pr-4 font-mono text-tx-secondary tabular-nums">–</td>
               <td className="py-2 font-mono tabular-nums text-purple-400">
+                {euroFmt(r.betrag_gesamt)} €
+              </td>
+            </tr>
+          ))}
+          {mergeHandwerker && hwRechnungen
+            .filter(r => !!r.verbrauchstyp_id)
+            .map((r) => (
+            <tr key={`hw-merged-${r.id}`} className="border-b border-bg-border/50 hover:bg-bg-hover transition-colors">
+              <td className="py-2 pr-4 font-mono text-xs text-tx-secondary">
+                {format(new Date(r.datum), 'dd.MM.yyyy')}
+              </td>
+              <td className="py-2 pr-4">
+                <span className="flex items-center gap-1.5">
+                  <span>{r.verbrauchstyp?.symbol}</span>
+                  <span className="text-tx-primary">{r.verbrauchstyp?.name}</span>
+                  <span title={r.beschreibung}><Wrench className="w-3 h-3 text-purple-400" /></span>
+                </span>
+              </td>
+              <td className="py-2 pr-4 text-tx-secondary text-xs">{r.handwerker?.name ?? '–'}</td>
+              <td className="py-2 pr-4 font-mono text-tx-secondary tabular-nums">–</td>
+              <td className="py-2 font-mono tabular-nums" style={{ color: r.verbrauchstyp?.farbe || '#f97316' }}>
                 {euroFmt(r.betrag_gesamt)} €
               </td>
             </tr>
@@ -597,7 +650,7 @@ function exportCSV(werte: Verbrauchswert[], dataMode: DataMode, vertraege: any[]
   URL.revokeObjectURL(url);
 }
 
-function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[], hwRechnungen: Handwerkerrechnung[] = []): ChartDataPoint[] {
+function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[], dataMode: DataMode, vertraege: any[], hwRechnungen: Handwerkerrechnung[] = [], mergeHandwerker = false): ChartDataPoint[] {
   if (!verbrauchswerte.length && !hwRechnungen.length) return [];
 
   const groups: Record<string, Verbrauchswert[]> = {};
@@ -637,7 +690,17 @@ function buildChartData(verbrauchswerte: Verbrauchswert[], typen: Verbrauchstyp[
 
   for (const r of hwRechnungen) {
     if (!byDate[r.datum]) byDate[r.datum] = { datum: format(new Date(r.datum), 'dd.MM.yy', { locale: de }) };
-    byDate[r.datum]['Handwerker'] = ((byDate[r.datum]['Handwerker'] as number) ?? 0) + r.betrag_gesamt;
+
+    if (mergeHandwerker && r.verbrauchstyp_id) {
+      // Zugeordnete Rechnung in den jeweiligen Verbrauchstyp einrechnen
+      const typName = r.verbrauchstyp?.name;
+      if (typName) {
+        byDate[r.datum][typName] = ((byDate[r.datum][typName] as number) ?? 0) + r.betrag_gesamt;
+      }
+    } else {
+      // Nicht zugeordnet oder Merge deaktiviert → eigener Graph
+      byDate[r.datum]['Handwerker'] = ((byDate[r.datum]['Handwerker'] as number) ?? 0) + r.betrag_gesamt;
+    }
   }
 
   return Object.entries(byDate)
