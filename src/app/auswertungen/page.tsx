@@ -200,14 +200,24 @@ export default function AuswertungenPage() {
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </button>
-            <button
-              onClick={() => setDataMode((d) => (d === 'verbrauch' ? 'kosten' : 'verbrauch'))}
-              className={`ht-btn-ghost text-xs flex items-center gap-1.5 ${dataMode === 'kosten' ? 'text-accent' : ''}`}
-              title={dataMode === 'kosten' ? 'Zur Verbrauchsansicht wechseln' : 'Zur Kostenansicht wechseln (€)'}
-            >
-              {dataMode === 'kosten' ? <Euro className="w-4 h-4" /> : <Gauge className="w-4 h-4" />}
-              <span className="hidden sm:inline">{dataMode === 'kosten' ? 'Kosten' : 'Verbrauch'}</span>
-            </button>
+            <div className="flex bg-bg-card border border-bg-border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setDataMode('verbrauch')}
+                className={`px-2.5 py-1.5 flex items-center gap-1.5 ${dataMode === 'verbrauch' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                title="Verbrauchsansicht"
+              >
+                <Gauge className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">Verbrauch</span>
+              </button>
+              <button
+                onClick={() => setDataMode('kosten')}
+                className={`px-2.5 py-1.5 flex items-center gap-1.5 ${dataMode === 'kosten' ? 'bg-accent text-white' : 'text-tx-muted hover:text-tx-primary'} transition-colors`}
+                title="Kostenansicht"
+              >
+                <Euro className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs">Kosten</span>
+              </button>
+            </div>
             <div className="flex bg-bg-card border border-bg-border rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('chart')}
