@@ -15,6 +15,7 @@
     "@nhost/nhost-js": "^4.5.0",
     "@nhost/react": "^3.7.0",
     "@nhost/react-apollo": "^18.0.2",
+    "@serwist/next": "^9.5.11",
     "date-fns": "^3.6.0",
     "graphql": "^16.8.1",
     "lucide-react": "^0.363.0",
@@ -22,7 +23,8 @@
     "react": "^18",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18",
-    "recharts": "^2.12.3"
+    "recharts": "^2.12.3",
+    "serwist": "^9.5.11"
   },
   "devDependencies": {
     "@types/node": "^20",
