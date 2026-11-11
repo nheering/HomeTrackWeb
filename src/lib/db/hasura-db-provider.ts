@@ -263,7 +263,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
 
   // Verbrauchsstellen
   async getVerbrauchsstellen(userId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
-    const { GET_VERBRAUCHSSTELLEN } = require('../graphql/queries');
+    const { GET_VERBRAUCHSSTELLEN } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_VERBRAUCHSSTELLEN, {
       user_id: userId,
@@ -275,7 +275,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
   }
 
   async getVerbrauchsstellenByTyp(verbrauchstypId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
-    const { GET_VERBRAUCHSSTELLEN_BY_TYP } = require('../graphql/queries');
+    const { GET_VERBRAUCHSSTELLEN_BY_TYP } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_VERBRAUCHSSTELLEN_BY_TYP, {
       typ_id: verbrauchstypId,
@@ -287,7 +287,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
   }
 
   async getVerbrauchsstelle(id: string): Promise<Verbrauchsstelle | null> {
-    const { GET_VERBRAUCHSSTELLE_BY_ID } = require('../graphql/queries');
+    const { GET_VERBRAUCHSSTELLE_BY_ID } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_VERBRAUCHSSTELLE_BY_ID, { id });
     return data.verbrauchsstelle_by_pk ? this.mapVerbrauchsstelle(data.verbrauchsstelle_by_pk) : null;
@@ -349,7 +349,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
   
   // Beispiel für Verbrauchswerte:
   async getVerbrauchswerteByTyp(verbrauchstypId: string, options?: QueryOptions & DateRangeFilter): Promise<Verbrauchswert[]> {
-    const { GET_VERBRAUCHSWERTE_BY_TYP } = require('../graphql/queries');
+    const { GET_VERBRAUCHSWERTE_BY_TYP } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_VERBRAUCHSWERTE_BY_TYP, {
       typ_id: verbrauchstypId,
@@ -500,7 +500,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
   // ============================================================
 
   async getUserSetting(userId: string, key: string): Promise<UserSettings | null> {
-    const { GET_USER_SETTING } = require('../graphql/queries');
+    const { GET_USER_SETTING } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_USER_SETTING, {
       user_id: userId,
@@ -523,7 +523,7 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
   }
 
   async getUserSettings(userId: string): Promise<UserSettings[]> {
-    const { GET_USER_SETTINGS } = require('../graphql/queries');
+    const { GET_USER_SETTINGS } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_USER_SETTINGS, {
       user_id: userId,
