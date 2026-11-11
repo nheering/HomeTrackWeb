@@ -8,7 +8,9 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(git push:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run *)",
+      "Bash(git stash *)"
     ]
   }
 }
