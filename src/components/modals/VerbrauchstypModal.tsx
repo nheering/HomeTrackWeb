@@ -1,23 +1,28 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useState, useRef, useCallback } from 'react';
 import { Loader2, AlertCircle, Pipette } from 'lucide-react';
 import Modal from './Modal';
-import { INSERT_VERBRAUCHSTYP, UPDATE_VERBRAUCHSTYP } from '@/lib/graphql/mutations';
-import { GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
+import { useDatabase } from '@/lib/db';
+import { useAuth } from '@/lib/auth';
+import type { CreateVerbrauchstyp, UpdateVerbrauchstyp, Verbrauchstyp } from '@/lib/db/types';
 
 const SYMBOLE = ['⚡', '🔥', '💧', '♨️', '🌡️', '☀️', '🌿', '🏠', '🔌', '🛢️'];
 const FARBEN  = ['#f97316', '#eab308', '#38bdf8', '#f43f5e', '#a78bfa', '#34d399', '#22c55e', '#fb923c', '#e879f9', '#60a5fa'];
 
 interface Props {
-  editData?: any;
+  editData?: Verbrauchstyp;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function VerbrauchstypModal({ editData, onClose }: Props) {
+export default function VerbrauchstypModal({ editData, onClose, onSuccess }: Props) {
   const isEdit = !!editData;
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  const db = useDatabase();
+  const auth = useAuth();
 
   const [form, setForm] = useState({
     name:    editData?.name    || '',
@@ -26,40 +31,52 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
     farbe:   editData?.farbe   || '#f97316',
   });
 
-  const [insertTyp, { loading: insertLoading }] = useMutation(INSERT_VERBRAUCHSTYP, {
-    refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
-    onCompleted: onClose,
-    onError: (error) => {
-      if (error.message?.includes('no mutations exist')) {
-        setErrorMsg('Fehlende Berechtigungen: Bitte Hasura-Permissions für "Insert" prüfen (siehe README Abschnitt 3)');
-      } else {
-        setErrorMsg(error.message || 'Ein Fehler ist aufgetreten');
-      }
-    },
-  });
-
-  const [updateTyp, { loading: updateLoading }] = useMutation(UPDATE_VERBRAUCHSTYP, {
-    refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
-    onCompleted: onClose,
-    onError: (error) => {
-      setErrorMsg(error.message || 'Ein Fehler ist aufgetreten');
-    },
-  });
-
-  const loading = insertLoading || updateLoading;
   const colorInputRef = useRef<HTMLInputElement>(null);
   const isCustomColor = !FARBEN.includes(form.farbe);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setLoading(true);
     
-    if (isEdit) {
-      updateTyp({ variables: { id: editData.id, set: form } });
-    } else {
-      insertTyp({ variables: { obj: form } });
+    try {
+      const user = await auth.getCurrentUser();
+      if (!user?.id) {
+        throw new Error('Benutzer nicht authentifiziert');
+      }
+      
+      const payload: CreateVerbrauchstyp | UpdateVerbrauchstyp = {
+        name: form.name,
+        einheit: form.einheit || undefined,
+        symbol: form.symbol || undefined,
+        farbe: form.farbe,
+      };
+      
+      if (isEdit) {
+        await db.updateVerbrauchstyp(editData.id, payload as UpdateVerbrauchstyp);
+      } else {
+        await db.createVerbrauchstyp({ 
+          userId: user.id,
+          name: form.name,
+          einheit: form.einheit || undefined,
+          symbol: form.symbol || undefined,
+          farbe: form.farbe,
+        });
+      }
+      
+      onSuccess?.();
+      onClose();
+    } catch (error: any) {
+      const message = error.message || 'Ein Fehler ist aufgetreten';
+      if (message.includes('no mutations exist') || message.includes('permission denied')) {
+        setErrorMsg('Fehlende Berechtigungen: Bitte Berechtigungen prüfen');
+      } else {
+        setErrorMsg(message);
+      }
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [form, isEdit, editData?.id, auth, db, onClose, onSuccess]);
 
   return (
     <Modal title={isEdit ? 'Verbrauchstyp bearbeiten' : 'Verbrauchstyp anlegen'} onClose={onClose}>
@@ -164,7 +181,7 @@ export default function VerbrauchstypModal({ editData, onClose }: Props) {
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="ht-btn-secondary flex-1 justify-center">
+          <button type="button" onClick={onClose} disabled={loading} className="ht-btn-secondary flex-1 justify-center">
             Abbrechen
           </button>
           <button type="submit" disabled={loading} className="ht-btn-primary flex-1 justify-center">

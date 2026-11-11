@@ -86,7 +86,7 @@ export interface DatabaseProvider {
   /**
    * Gibt alle Verbrauchsstellen für einen bestimmten Verbrauchstyp zurück
    */
-  getVerbrauchsstellenByTyp(verbrauchstypId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]>;
+  getVerbrauchsstellenByTyp(verbrauchstypId: string, userId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]>;
   
   /**
    * Gibt eine bestimmte Verbrauchsstelle zurück

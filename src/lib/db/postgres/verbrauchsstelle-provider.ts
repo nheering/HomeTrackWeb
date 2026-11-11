@@ -85,8 +85,13 @@ export async function getVerbrauchsstellen(userId: string, options?: QueryOption
   return result.rows.map(mapRowToVerbrauchsstelle);
 }
 
-export async function getVerbrauchsstellenByTyp(verbrauchstypId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
-  const { clause: whereClause, params: whereParams } = buildWhereClause({ verbrauchstypId });
+export async function getVerbrauchsstellenByTyp(
+  verbrauchstypId: string,
+  userId: string,
+  options?: QueryOptions
+): Promise<Verbrauchsstelle[]> {
+  const filters: Record<string, any> = { verbrauchstypId, userId };
+  const { clause: whereClause, params: whereParams } = buildWhereClause(filters);
   const orderByClause = buildOrderBy(options?.orderBy, options?.orderDirection || 'asc');
   const { clause: paginationClause, params: paginationParams } = buildPagination(options?.limit, options?.offset, whereParams);
   

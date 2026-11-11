@@ -84,8 +84,8 @@ export class PostgresDatabaseProvider implements DatabaseProvider {
     return verbrauchsstelleProvider.getVerbrauchsstellen(userId, options);
   }
   
-  async getVerbrauchsstellenByTyp(verbrauchstypId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
-    return verbrauchsstelleProvider.getVerbrauchsstellenByTyp(verbrauchstypId, options);
+  async getVerbrauchsstellenByTyp(verbrauchstypId: string, userId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
+    return verbrauchsstelleProvider.getVerbrauchsstellenByTyp(verbrauchstypId, userId, options);
   }
   
   async getVerbrauchsstelle(id: string): Promise<Verbrauchsstelle | null> {

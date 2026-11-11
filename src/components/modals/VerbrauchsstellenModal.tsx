@@ -1,21 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
-import { INSERT_VERBRAUCHSSTELLE, UPDATE_VERBRAUCHSSTELLE } from '@/lib/graphql/mutations';
-import { GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
+import { useDatabase } from '@/lib/db';
+import { useAuth } from '@/lib/auth';
+import type { CreateVerbrauchsstelle, UpdateVerbrauchsstelle, Verbrauchsstelle } from '@/lib/db/types';
 
 interface Props {
-  editData?: any;
+  editData?: Verbrauchsstelle;
   verbrauchstypId?: string;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function VerbrauchsstellenModal({ editData, verbrauchstypId, onClose }: Props) {
+export default function VerbrauchsstellenModal({ editData, verbrauchstypId, onClose, onSuccess }: Props) {
   const isEdit = !!editData;
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const db = useDatabase();
+  const auth = useAuth();
 
   const [form, setForm] = useState({
     bezeichnung:      editData?.bezeichnung    || '',
@@ -29,50 +35,70 @@ export default function VerbrauchsstellenModal({ editData, verbrauchstypId, onCl
     notizen:          editData?.notizen        || '',
   });
 
-  const [insertStelle, { loading: insertLoading }] = useMutation(INSERT_VERBRAUCHSSTELLE, {
-    refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
-    onCompleted: onClose,
-  });
-
-  const [updateStelle, { loading: updateLoading }] = useMutation(UPDATE_VERBRAUCHSSTELLE, {
-    refetchQueries: [{ query: GET_VERBRAUCHSTYPEN }],
-    onCompleted: onClose,
-  });
-
-  const loading = insertLoading || updateLoading;
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    setLoading(true);
     
-    const typId = editData?.verbrauchstyp_id || verbrauchstypId;
-    if (!typId && !isEdit) {
-      console.error("No verbrauchstypId provided");
-      return;
+    try {
+      const user = await auth.getCurrentUser();
+      if (!user?.id) {
+        throw new Error('Benutzer nicht authentifiziert');
+      }
+      
+      const typId = editData?.verbrauchstyp_id || verbrauchstypId;
+      if (!typId && !isEdit) {
+        throw new Error('Keine Verbrauchstyp-ID angegeben');
+      }
+      
+      const payload: CreateVerbrauchsstelle | UpdateVerbrauchsstelle = {
+        bezeichnung: form.bezeichnung,
+        zaehlerNummer: form.zaehler_nummer || undefined,
+        zaehlerTyp: form.zaehler_typ || undefined,
+        standort: form.standort || undefined,
+        markeHersteller: form.marke_hersteller || undefined,
+        einbauDatum: form.einbau_datum || undefined,
+        istAktiv: form.ist_aktiv,
+        istStandard: form.ist_standard,
+        notizen: form.notizen || undefined,
+      };
+      
+      if (isEdit) {
+        await db.updateVerbrauchsstelle(editData.id, payload as UpdateVerbrauchsstelle);
+      } else {
+        await db.createVerbrauchsstelle({ 
+          userId: user.id,
+          verbrauchstypId: typId!,
+          bezeichnung: form.bezeichnung,
+          zaehlerNummer: form.zaehler_nummer || undefined,
+          zaehlerTyp: form.zaehler_typ || undefined,
+          standort: form.standort || undefined,
+          markeHersteller: form.marke_hersteller || undefined,
+          einbauDatum: form.einbau_datum || undefined,
+          istAktiv: form.ist_aktiv,
+          istStandard: form.ist_standard,
+          notizen: form.notizen || undefined,
+        });
+      }
+      
+      onSuccess?.();
+      onClose();
+    } catch (error: any) {
+      const message = error.message || 'Ein Fehler ist aufgetreten';
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
     }
-
-    if (isEdit) {
-      updateStelle({ 
-        variables: { 
-          id: editData.id, 
-          set: form 
-        } 
-      });
-    } else {
-      insertStelle({ 
-        variables: { 
-          obj: { 
-            ...form, 
-            verbrauchstyp_id: typId 
-          } 
-        } 
-      });
-    }
-  };
+  }, [form, isEdit, editData?.id, editData?.verbrauchstyp_id, verbrauchstypId, auth, db, onClose, onSuccess]);
 
   return (
     <Modal title={isEdit ? 'Verbrauchsstelle bearbeiten' : 'Verbrauchsstelle anlegen'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+        {errorMsg && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+            <span className="text-sm text-red-300">{errorMsg}</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="ht-label">Bezeichnung *</label>
@@ -169,7 +195,7 @@ export default function VerbrauchsstellenModal({ editData, verbrauchstypId, onCl
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="ht-btn-secondary flex-1 justify-center">
+          <button type="button" onClick={onClose} disabled={loading} className="ht-btn-secondary flex-1 justify-center">
             Abbrechen
           </button>
           <button type="submit" disabled={loading} className="ht-btn-primary flex-1 justify-center">

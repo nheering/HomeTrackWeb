@@ -274,11 +274,12 @@ export class HasuraDatabaseProvider implements DatabaseProvider {
     return data.verbrauchsstelle.map(this.mapVerbrauchsstelle);
   }
 
-  async getVerbrauchsstellenByTyp(verbrauchstypId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
+  async getVerbrauchsstellenByTyp(verbrauchstypId: string, userId: string, options?: QueryOptions): Promise<Verbrauchsstelle[]> {
     const { GET_VERBRAUCHSSTELLEN_BY_TYP } = require('../graphql/queries-additional');
     
     const data = await this.query<any>(GET_VERBRAUCHSSTELLEN_BY_TYP, {
       typ_id: verbrauchstypId,
+      user_id: userId,
       limit: options?.limit,
       offset: options?.offset,
     });

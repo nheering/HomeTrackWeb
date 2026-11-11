@@ -1,30 +1,27 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
-import { useNhostClient } from '@nhost/nextjs';
-import { storageUrl } from '@/lib/nhost';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Loader2, Camera, X, Plus, AlertCircle } from 'lucide-react';
-import { uploadFehlerText } from '@/lib/upload';
 import Modal from './Modal';
 import DateInput from '@/components/ui/DateInput';
 import StorageImage from '@/components/ui/StorageImage';
 import VerbrauchsstellenModal from './VerbrauchsstellenModal';
-import { INSERT_VERBRAUCHSWERT, UPDATE_VERBRAUCHSWERT } from '@/lib/graphql/mutations';
-import { GET_DASHBOARD_DATA, GET_LETZTER_VERBRAUCHSWERT, GET_VORHERIGER_VERBRAUCHSWERT, GET_VERBRAUCHSTYPEN } from '@/lib/graphql/queries';
-import { Verbrauchswert } from '@/types';
+import { useDatabase } from '@/lib/db';
+import { useAuth } from '@/lib/auth';
+import { createStorageProvider } from '@/lib/storage';
+import type { CreateVerbrauchswert, UpdateVerbrauchswert, Verbrauchswert, Verbrauchstyp, Verbrauchsstelle } from '@/lib/db/types';
 
 interface Props {
   onClose: () => void;
-  editData?: Verbrauchswert;
+  editData?: any;
   defaultTypId?: string;
 }
 
 export default function VerbrauchswertModal({ onClose, editData, defaultTypId }: Props) {
   const isEdit = !!editData;
-  const nhost = useNhostClient();
-  const { data: typenData } = useQuery(GET_VERBRAUCHSTYPEN);
-  const typen = typenData?.verbrauchstyp ?? [];
+  const db = useDatabase();
+  const auth = useAuth();
+  const storage = createStorageProvider();
 
   const [form, setForm] = useState({
     verbrauchstyp_id:    editData?.verbrauchstyp_id    || defaultTypId || '',
@@ -40,60 +37,67 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
   const [uploadError, setUploadError]   = useState<string | null>(null);
   const [stelleError, setStelleError]   = useState(false);
   const [showCreateStelle, setShowCreateStelle] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [typen, setTypen] = useState<Verbrauchstyp[]>([]);
+  const [stellen, setStellen] = useState<Verbrauchsstelle[]>([]);
+  const [letzterWert, setLetzterWert] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedTyp = typen.find((t: any) => t.id === form.verbrauchstyp_id);
-  const stellen = selectedTyp?.verbrauchsstellen ?? [];
+  const selectedTyp = typen.find((t) => t.id === form.verbrauchstyp_id);
 
-  // Verbrauchsstelle auto-selektieren, sobald nach Neuanlage Stellen verfügbar werden
+  // Daten laden
+  const loadData = useCallback(async () => {
+    try {
+      const user = await auth.getCurrentUser();
+      if (!user?.id) return;
+      
+      const typenList = await db.getVerbrauchstypen(user.id);
+      setTypen(typenList);
+      
+      if (form.verbrauchstyp_id) {
+        const stellenList = await db.getVerbrauchsstellenByTyp(form.verbrauchstyp_id, user.id);
+        setStellen(stellenList);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Daten:', error);
+    }
+  }, [auth, db, form.verbrauchstyp_id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Verbrauchsstelle auto-selektieren
   useEffect(() => {
     if (!form.verbrauchsstelle_id && stellen.length > 0) {
-      const standard = stellen.find((s: any) => s.ist_standard) ?? stellen[0];
+      const standard = stellen.find((s) => s.ist_standard) ?? stellen[0];
       setForm(f => ({ ...f, verbrauchsstelle_id: standard.id }));
     }
   }, [stellen]);
 
+  // Letzten Verbrauchswert laden
+  useEffect(() => {
+    const loadLetzterWert = async () => {
+      if (!form.verbrauchstyp_id || !form.verbrauchsstelle_id || !form.datum) return;
+      
+      try {
+        const wert = isEdit
+          ? await db.getPreviousVerbrauchswert(form.verbrauchstyp_id, form.verbrauchsstelle_id, form.datum, editData.id)
+          : await db.getLastVerbrauchswert(form.verbrauchstyp_id, form.verbrauchsstelle_id, form.datum);
+        setLetzterWert(wert);
+      } catch (error) {
+        console.error('Fehler beim Laden des letzten Wertes:', error);
+      }
+    };
+    
+    loadLetzterWert();
+  }, [db, form.verbrauchstyp_id, form.verbrauchsstelle_id, form.datum, isEdit, editData?.id]);
+
   const canQuery = !!form.verbrauchstyp_id && !!form.verbrauchsstelle_id;
-
-  // Insert mode: fetch the most recent entry for this type+stelle up to (and including) the selected date
-  const { data: letzterData } = useQuery(GET_LETZTER_VERBRAUCHSWERT, {
-    variables: { typ_id: form.verbrauchstyp_id, stelle_id: form.verbrauchsstelle_id, datum: form.datum },
-    skip: isEdit || !canQuery || !form.datum,
-    fetchPolicy: 'network-only',
-  });
-
-  // Edit mode: fetch the entry just before (or on) the current datum, excluding the entry being edited
-  const { data: vorherigerData } = useQuery(GET_VORHERIGER_VERBRAUCHSWERT, {
-    variables: {
-      typ_id:     form.verbrauchstyp_id,
-      stelle_id:  form.verbrauchsstelle_id,
-      datum:      form.datum,
-      exclude_id: editData?.id ?? '00000000-0000-0000-0000-000000000000',
-    },
-    skip: !isEdit || !canQuery || !form.datum,
-    fetchPolicy: 'network-only',
-  });
-
-  const letzterWert = isEdit
-    ? (vorherigerData?.verbrauchswert?.[0] ?? null)
-    : (letzterData?.verbrauchswert?.[0] ?? null);
-
   const aktuellerStand = parseFloat(form.zaehlerstand);
   const verbrauch = letzterWert && form.zaehlerstand && !isNaN(aktuellerStand)
     ? aktuellerStand - letzterWert.zaehlerstand
     : null;
-
-  const refetchQueries = [{ query: GET_DASHBOARD_DATA }];
-
-  const [insertWert, { loading: insertLoading }] = useMutation(INSERT_VERBRAUCHSWERT, {
-    refetchQueries,
-    onCompleted: onClose,
-  });
-
-  const [updateWert, { loading: updateLoading }] = useMutation(UPDATE_VERBRAUCHSWERT, {
-    refetchQueries,
-    onCompleted: onClose,
-  });
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,74 +108,91 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleTypChange = async (typId: string) => {
+    setForm(f => ({ ...f, verbrauchstyp_id: typId, verbrauchsstelle_id: '' }));
+    
+    try {
+      const user = await auth.getCurrentUser();
+      if (!user?.id) return;
+      
+      const stellenList = await db.getVerbrauchsstellenByTyp(typId, user.id);
+      setStellen(stellenList);
+    } catch (error) {
+      console.error('Fehler beim Laden der Stellen:', error);
+    }
+  };
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.verbrauchsstelle_id) {
       setStelleError(true);
       return;
     }
     setStelleError(false);
-    let bild_url: string | undefined = editData?.bild_url;
+    setLoading(true);
 
-    if (imageFile) {
-      setUploading(true);
-      setUploadError(null);
-      try {
-        const token = nhost.auth.getAccessToken();
-        const { fileMetadata, error } = await nhost.storage.upload({
-          file: imageFile,
-          bucketId: 'default',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (error || !fileMetadata) {
-          setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(error)}`);
+    try {
+      const user = await auth.getCurrentUser();
+      if (!user?.id) {
+        throw new Error('Benutzer nicht authentifiziert');
+      }
+
+      let bildUrl: string | undefined = editData?.bild_url;
+
+      // Bild hochladen falls vorhanden
+      if (imageFile) {
+        setUploading(true);
+        setUploadError(null);
+        try {
+          const result = await storage.upload(imageFile, {
+            directory: 'verbrauchswerte',
+            filename: `zaehlerstand_${user.id}_${Date.now()}.jpg`,
+          });
+          bildUrl = result.url;
+        } catch (err) {
+          setUploadError(`Bild-Upload fehlgeschlagen: ${err}`);
+          setLoading(false);
           setUploading(false);
           return;
         }
-        bild_url = `${storageUrl}/files/${fileMetadata.id}`;
-      } catch (err) {
-        setUploadError(`Bild-Upload fehlgeschlagen: ${uploadFehlerText(err)}`);
         setUploading(false);
-        return;
       }
-      setUploading(false);
+
+      const berechneterVerbrauch = verbrauch !== null ? Math.max(0, verbrauch) : undefined;
+
+      const payload: CreateVerbrauchswert | UpdateVerbrauchswert = {
+        verbrauchstypId: form.verbrauchstyp_id,
+        verbrauchsstelleId: form.verbrauchsstelle_id || undefined,
+        datum: form.datum,
+        zaehlerstand: parseFloat(form.zaehlerstand),
+        verbrauch: berechneterVerbrauch,
+        notizen: form.notizen || undefined,
+        bildUrl,
+      };
+
+      if (isEdit) {
+        await db.updateVerbrauchswert(editData.id, payload as UpdateVerbrauchswert);
+      } else {
+        await db.createVerbrauchswert({ 
+          userId: user.id,
+          verbrauchstypId: form.verbrauchstyp_id,
+          verbrauchsstelleId: form.verbrauchsstelle_id || undefined,
+          datum: form.datum,
+          zaehlerstand: parseFloat(form.zaehlerstand),
+          verbrauch: berechneterVerbrauch,
+          notizen: form.notizen || undefined,
+          bildUrl,
+        });
+      }
+
+      onClose();
+    } catch (error: any) {
+      const message = error.message || 'Ein Fehler ist aufgetreten';
+      setUploadError(message);
+    } finally {
+      setLoading(false);
     }
-
-    const berechneterVerbrauch = verbrauch !== null ? Math.max(0, verbrauch) : null;
-
-    if (isEdit) {
-      updateWert({
-        variables: {
-          id: editData!.id,
-          set: {
-            verbrauchstyp_id:    form.verbrauchstyp_id,
-            verbrauchsstelle_id: form.verbrauchsstelle_id || null,
-            datum:               form.datum,
-            zaehlerstand:        parseFloat(form.zaehlerstand),
-            verbrauch:           berechneterVerbrauch,
-            notizen:             form.notizen || null,
-            bild_url,
-          },
-        },
-      });
-    } else {
-      insertWert({
-        variables: {
-          obj: {
-            verbrauchstyp_id:    form.verbrauchstyp_id,
-            verbrauchsstelle_id: form.verbrauchsstelle_id || null,
-            datum:               form.datum,
-            zaehlerstand:        parseFloat(form.zaehlerstand),
-            verbrauch:           berechneterVerbrauch,
-            notizen:             form.notizen || null,
-            bild_url,
-          },
-        },
-      });
-    }
-  };
-
-  const loading = insertLoading || updateLoading || uploading;
+  }, [auth, db, storage, form, imageFile, verbrauch, editData, isEdit, onClose]);
 
   return (
     <>
@@ -183,15 +204,11 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
           <select
             className="ht-input"
             value={form.verbrauchstyp_id}
-            onChange={e => {
-              const typ = typen.find((t: any) => t.id === e.target.value);
-              const standardStelle = typ?.verbrauchsstellen?.find((s: any) => s.ist_standard);
-              setForm(f => ({ ...f, verbrauchstyp_id: e.target.value, verbrauchsstelle_id: standardStelle?.id ?? '' }));
-            }}
+            onChange={e => handleTypChange(e.target.value)}
             required
           >
             <option value="">– Typ wählen –</option>
-            {typen.map((t: any) => (
+            {typen.map((t) => (
               <option key={t.id} value={t.id}>{t.symbol} {t.name} ({t.einheit})</option>
             ))}
           </select>
@@ -209,7 +226,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
                 disabled={stellen.length === 0}
               >
                 <option value="">{stellen.length === 0 ? 'Noch keine Stelle vorhanden' : '– Stelle wählen –'}</option>
-                {stellen.map((s: any) => (
+                {stellen.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.bezeichnung}{s.ist_standard ? ' ★' : ''}
                   </option>
@@ -305,7 +322,7 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
         </div>
 
         <div className="flex gap-3 pt-2">
-          <button type="button" onClick={onClose} className="ht-btn-secondary flex-1 justify-center">Abbrechen</button>
+          <button type="button" onClick={onClose} disabled={loading} className="ht-btn-secondary flex-1 justify-center">Abbrechen</button>
           <button type="submit" disabled={loading} className="ht-btn-primary flex-1 justify-center">
             {loading
               ? <><Loader2 className="w-4 h-4 animate-spin" />{uploading ? 'Foto wird hochgeladen...' : 'Speichern...'}</>
@@ -318,7 +335,11 @@ export default function VerbrauchswertModal({ onClose, editData, defaultTypId }:
     {showCreateStelle && (
       <VerbrauchsstellenModal
         verbrauchstypId={form.verbrauchstyp_id}
-        onClose={() => setShowCreateStelle(false)}
+        onClose={() => {
+          setShowCreateStelle(false);
+          loadData();
+        }}
+        onSuccess={loadData}
       />
     )}
   </>
