@@ -45,6 +45,8 @@ export {
   createAuthProvider,
   resetAuthProvider,
   getAuthProvider,
+  AuthContext,
+  useAuth,
 } from './auth-provider';
 
 // Implementierungen
@@ -52,4 +54,4 @@ export { NhostAuthProvider } from './nhost-auth-provider';
 export { LocalAuthProvider } from './local-auth-provider';
 
 // Konfiguration
-export { config as authConfig } from '../config';
+export { config as authConfig, isNhostAuth, isLocalAuth } from '../config';

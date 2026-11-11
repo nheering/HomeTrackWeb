@@ -145,9 +145,30 @@ export function isAuthError(error: unknown): error is AuthError {
   return error instanceof AuthError;
 }
 
+// ============================================================
+// React Context für Auth-Provider
+// ============================================================
+
+import React from 'react';
+
+export const AuthContext = React.createContext<AuthProvider>(createAuthProvider());
+
+/**
+ * Hook um auf den Auth-Provider zuzugreifen
+ */
+export function useAuth(): AuthProvider {
+  const context = React.useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthContext.Provider');
+  }
+  return context;
+}
+
 export default {
   createAuthProvider,
   resetAuthProvider,
   getAuthProvider,
   isAuthError,
+  AuthContext,
+  useAuth,
 };
