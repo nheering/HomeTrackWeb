@@ -1,0 +1,21 @@
+# Docker
+# -------
+
+# Lokale Umgebungsvariablen (enthalten Passwoerter!)
+.env.local
+
+# Environment Files mit sensiblen Daten
+.env*.local
+
+# IDE spezifische Dateien
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker Logs
+*.log
+
+# temporaere Dateien
+tmp/
+temp/
