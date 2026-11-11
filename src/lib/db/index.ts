@@ -73,6 +73,8 @@ export {
   createDatabaseProvider,
   resetDatabaseProvider,
   getDatabaseProvider,
+  DatabaseContext,
+  useDatabase,
 } from './db-provider';
 
 // Implementierungen
@@ -80,4 +82,4 @@ export { HasuraDatabaseProvider } from './hasura-db-provider';
 export { PostgresDatabaseProvider } from './postgres-db-provider';
 
 // Konfiguration
-export { config as dbConfig } from '../config';
+export { config as dbConfig, isNhostBackend, isPostgresBackend } from '../config';

@@ -395,6 +395,25 @@ import { PostgresDatabaseProvider } from './postgres-db-provider';
 
 let dbProviderInstance: DatabaseProvider | null = null;
 
+// ============================================================
+// React Context für DB-Provider
+// ============================================================
+
+import React from 'react';
+
+export const DatabaseContext = React.createContext<DatabaseProvider>(createDatabaseProvider());
+
+/**
+ * Hook um auf den DB-Provider zuzugreifen
+ */
+export function useDatabase(): DatabaseProvider {
+  const context = React.useContext(DatabaseContext);
+  if (!context) {
+    throw new Error('useDatabase must be used within a DatabaseContext.Provider');
+  }
+  return context;
+}
+
 /**
  * Erstellt einen Datenbank-Provider basierend auf der Konfiguration
  */

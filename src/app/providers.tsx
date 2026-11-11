@@ -9,16 +9,20 @@ import { PlusActionProvider } from '@/lib/plus-action-context';
 import { NavSettingsProvider } from '@/lib/nav-settings-context';
 import { config, isNhostBackend, isPostgresBackend } from '@/lib/config';
 import { createAuthProvider, AuthContext } from '@/lib/auth';
+import { createDatabaseProvider, DatabaseContext } from '@/lib/db';
 
 /**
  * Haupt-Provider-Komponente
  * 
- * Diese Komponente stellt die Authentifizierung und Apollo-Client
+ * Diese Komponente stellt die Authentifizierung, Datenbank und Apollo-Client
  * basierend auf der gewählten Backend-Konfiguration bereit.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   // Auth-Provider basierend auf Konfiguration erstellen
   const authProvider = useMemo(() => createAuthProvider(), []);
+  
+  // DB-Provider basierend auf Konfiguration erstellen
+  const dbProvider = useMemo(() => createDatabaseProvider(), []);
 
   // Apollo-Client nur für Nhost erstellen
   const apolloClient = useMemo(() => {
@@ -48,11 +52,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (isPostgresBackend()) {
     return (
       <AuthContext.Provider value={authProvider}>
-        <NavSettingsProvider>
-          <PlusActionProvider>
-            {children}
-          </PlusActionProvider>
-        </NavSettingsProvider>
+        <DatabaseContext.Provider value={dbProvider}>
+          <NavSettingsProvider>
+            <PlusActionProvider>
+              {children}
+            </PlusActionProvider>
+          </NavSettingsProvider>
+        </DatabaseContext.Provider>
       </AuthContext.Provider>
     );
   }
@@ -61,13 +67,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <NhostReactProvider nhost={nhost}>
       <AuthContext.Provider value={authProvider}>
-        <ApolloProvider client={apolloClient!}>
-          <NavSettingsProvider>
-            <PlusActionProvider>
-              {children}
-            </PlusActionProvider>
-          </NavSettingsProvider>
-        </ApolloProvider>
+        <DatabaseContext.Provider value={dbProvider}>
+          <ApolloProvider client={apolloClient!}>
+            <NavSettingsProvider>
+              <PlusActionProvider>
+                {children}
+              </PlusActionProvider>
+            </NavSettingsProvider>
+          </ApolloProvider>
+        </DatabaseContext.Provider>
       </AuthContext.Provider>
     </NhostReactProvider>
   );
